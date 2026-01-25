@@ -140,12 +140,12 @@ const Signup = () => {
                         <input type="password" name="password" placeholder="Password" onChange={handleChange} className="border p-2 rounded" required />
                     </div>
 
-                    <button type="submit" className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 transition font-bold text-lg mt-6">
+                    <button type="submit" className="w-full bg-green-800 text-white py-3 rounded hover:bg-green-900 transition font-bold text-lg mt-6 shadow-lg uppercase tracking-wider">
                         Register
                     </button>
                 </form>
                 <div className="mt-4 text-center">
-                    <p className="text-sm">Already registered? <Link to="/login" className="text-blue-600 hover:underline">Login</Link></p>
+                    <p className="text-sm">Already registered? <Link to="/login" className="text-green-800 font-semibold hover:underline">Login</Link></p>
                 </div>
             </div>
         </div>

@@ -88,7 +88,7 @@ const Activities = () => {
                     <div key={activity.id} className="bg-white rounded shadow overflow-hidden">
                         {activity.image_path && (
                             <img 
-                                src={`${import.meta.env.VITE_API_URL}${activity.image_path}`} 
+                                src={`${import.meta.env.VITE_API_URL || ''}${activity.image_path}`} 
                                 alt={activity.title} 
                                 className="w-full h-48 object-cover"
                             />

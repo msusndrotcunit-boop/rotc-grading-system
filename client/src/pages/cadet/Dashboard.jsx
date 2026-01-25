@@ -81,13 +81,13 @@ const CadetDashboard = () => {
 
             {/* Activities Section */}
             <div>
-                <h2 className="text-xl font-bold mb-4">Upcoming Activities</h2>
+                <h2 className="text-xl font-bold mb-4">Activities</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {activities.map(activity => (
                         <div key={activity.id} className="bg-white rounded shadow overflow-hidden">
                             {activity.image_path && (
                                 <img 
-                                    src={`${import.meta.env.VITE_API_URL}${activity.image_path}`} 
+                                    src={`${import.meta.env.VITE_API_URL || ''}${activity.image_path}`} 
                                     alt={activity.title} 
                                     className="w-full h-48 object-cover"
                                 />

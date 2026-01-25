@@ -73,7 +73,7 @@ const Profile = () => {
                 status: data.status || 'Ongoing'
             });
             if (data.profile_pic) {
-                setPreview(`${import.meta.env.VITE_API_URL}${data.profile_pic}`);
+                setPreview(`${import.meta.env.VITE_API_URL || ''}${data.profile_pic}`);
             }
             setLoading(false);
         } catch (err) {
@@ -134,7 +134,7 @@ const Profile = () => {
             });
             alert('Profile updated successfully!');
             if (res.data.profilePic) {
-                setPreview(`${import.meta.env.VITE_API_URL}${res.data.profilePic}`);
+                setPreview(`${import.meta.env.VITE_API_URL || ''}${res.data.profilePic}`);
             }
         } catch (err) {
             console.error(err);

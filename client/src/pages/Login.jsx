@@ -51,38 +51,38 @@ const Login = () => {
                         className="w-20 h-20 object-contain"
                     />
                 </div>
-                <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">MSU-SND ROTC UNIT Grading Management Login</h2>
+                <h2 className="text-2xl font-bold mb-6 text-center text-green-900">MSU-SND ROTC UNIT Grading Management Login</h2>
                 {error && <p className="text-red-500 mb-4">{error}</p>}
                 <form onSubmit={handleSubmit}>
                     <div className="mb-4">
-                        <label className="block text-gray-700">Username</label>
+                        <label className="block text-gray-700 font-semibold">Username</label>
                         <input
                             type="text"
                             name="username"
-                            className="w-full border rounded px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border-gray-300 rounded px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent"
                             onChange={handleChange}
                             required
                         />
                     </div>
                     <div className="mb-6">
-                        <label className="block text-gray-700">Password</label>
+                        <label className="block text-gray-700 font-semibold">Password</label>
                         <input
                             type="password"
                             name="password"
-                            className="w-full border rounded px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border-gray-300 rounded px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent"
                             onChange={handleChange}
                             required
                         />
                     </div>
                     <button
                         type="submit"
-                        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+                        className="w-full bg-green-800 text-white py-2 rounded font-bold uppercase tracking-wider hover:bg-green-900 transition shadow-lg"
                     >
                         Login
                     </button>
                 </form>
                 <div className="mt-4 text-center">
-                    <p className="text-sm">Don't have a cadet account? <Link to="/signup" className="text-blue-600 hover:underline">Sign Up</Link></p>
+                    <p className="text-sm">Don't have a cadet account? <Link to="/signup" className="text-green-800 font-semibold hover:underline">Sign Up</Link></p>
                 </div>
             </div>
         </div>
