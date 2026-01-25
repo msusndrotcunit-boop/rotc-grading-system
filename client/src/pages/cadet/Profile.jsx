@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Save, User, Moon, Sun, Camera } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 const Profile = () => {
     const [profile, setProfile] = useState({
@@ -82,11 +83,24 @@ const Profile = () => {
         }
     };
 
-    const handleFileChange = (e) => {
+    const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (file) {
-            setProfilePic(file);
-            setPreview(URL.createObjectURL(file));
+            const options = {
+                maxSizeMB: 0.5,
+                maxWidthOrHeight: 1024,
+                useWebWorker: true,
+            };
+
+            try {
+                const compressedFile = await imageCompression(file, options);
+                setProfilePic(compressedFile);
+                setPreview(URL.createObjectURL(compressedFile));
+            } catch (error) {
+                console.error("Image compression error:", error);
+                setProfilePic(file);
+                setPreview(URL.createObjectURL(file));
+            }
         }
     };
 

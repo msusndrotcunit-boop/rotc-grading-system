@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Trash2, Plus, Calendar } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 
 const Activities = () => {
     const [activities, setActivities] = useState([]);
@@ -20,8 +21,23 @@ const Activities = () => {
         }
     };
 
-    const handleFileChange = (e) => {
-        setForm({ ...form, image: e.target.files[0] });
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const options = {
+                maxSizeMB: 0.5,
+                maxWidthOrHeight: 1024,
+                useWebWorker: true,
+            };
+
+            try {
+                const compressedFile = await imageCompression(file, options);
+                setForm({ ...form, image: compressedFile });
+            } catch (error) {
+                console.error("Image compression error:", error);
+                setForm({ ...form, image: file });
+            }
+        }
     };
 
     const handleSubmit = async (e) => {
