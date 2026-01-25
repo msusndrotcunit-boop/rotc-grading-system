@@ -247,7 +247,7 @@ router.get('/profile', (req, res) => {
 
 // Update Admin Profile (Pic)
 router.put('/profile', upload.single('profilePic'), (req, res) => {
-    const profilePic = req.file ? `/uploads/${req.file.filename}` : null;
+    const profilePic = req.file ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` : null;
     
     if (profilePic) {
         db.run(`UPDATE users SET profile_pic = ? WHERE id = ?`, [profilePic, req.user.id], function(err) {

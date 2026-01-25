@@ -74,7 +74,7 @@ const AdminProfile = () => {
                         <div className="relative w-40 h-40 mb-6">
                             {preview || profile.profile_pic ? (
                                 <img 
-                                    src={preview || `${import.meta.env.VITE_API_URL || ''}${profile.profile_pic.replace(/\\/g, '/')}`} 
+                                    src={preview || (profile.profile_pic.startsWith('data:') ? profile.profile_pic : `${import.meta.env.VITE_API_URL || ''}${profile.profile_pic.replace(/\\/g, '/')}`)} 
                                     alt="Profile" 
                                     className="w-full h-full object-cover rounded-full border-4 border-gray-200 shadow-sm"
                                 />

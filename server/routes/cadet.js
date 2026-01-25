@@ -7,15 +7,11 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 // Multer Config
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
+const storage = multer.memoryStorage();
+const upload = multer({ 
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 } // Limit 5MB
 });
-const upload = multer({ storage });
 
 router.use(authenticateToken);
 
@@ -109,7 +105,9 @@ router.put('/profile', upload.single('profilePic'), (req, res) => {
 
     if (req.file) {
         sql += `, profile_pic=?`;
-        params.push(`/uploads/${req.file.filename}`);
+        // Convert buffer to Base64 Data URI
+        const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+        params.push(base64Image);
     }
 
     sql += ` WHERE id=?`;
@@ -117,7 +115,10 @@ router.put('/profile', upload.single('profilePic'), (req, res) => {
 
     db.run(sql, params, (err) => {
         if (err) return res.status(500).json({ message: err.message });
-        res.json({ message: 'Profile updated', profilePic: req.file ? `/uploads/${req.file.filename}` : null });
+        res.json({ 
+            message: 'Profile updated', 
+            profilePic: req.file ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` : null 
+        });
     });
 });
 

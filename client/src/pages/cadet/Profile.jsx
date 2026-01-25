@@ -73,8 +73,12 @@ const Profile = () => {
                 status: data.status || 'Ongoing'
             });
             if (data.profile_pic) {
-                const normalizedPath = data.profile_pic.replace(/\\/g, '/');
-                setPreview(`${import.meta.env.VITE_API_URL || ''}${normalizedPath}`);
+                if (data.profile_pic.startsWith('data:')) {
+                    setPreview(data.profile_pic);
+                } else {
+                    const normalizedPath = data.profile_pic.replace(/\\/g, '/');
+                    setPreview(`${import.meta.env.VITE_API_URL || ''}${normalizedPath}`);
+                }
             }
             setLoading(false);
         } catch (err) {
