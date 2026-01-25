@@ -37,12 +37,12 @@ const AdminLayout = () => {
 
             {/* Sidebar */}
             <div className={clsx(
-                "fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0",
+                "fixed inset-y-0 left-0 z-50 w-64 bg-green-900 text-white flex flex-col transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0",
                 isSidebarOpen ? "translate-x-0" : "-translate-x-full"
             )}>
-                <div className="p-6 text-xl font-bold border-b border-gray-700 flex justify-between items-center">
+                <div className="p-6 text-xl font-bold border-b border-green-800 flex justify-between items-center">
                     <span>ROTC Admin</span>
-                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400 hover:text-white">
+                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-green-200 hover:text-white">
                         <X size={24} />
                     </button>
                 </div>
@@ -57,7 +57,7 @@ const AdminLayout = () => {
                                 onClick={() => setIsSidebarOpen(false)} // Close on mobile click
                                 className={clsx(
                                     "flex items-center space-x-3 p-3 rounded transition",
-                                    isActive ? "bg-blue-600 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                                    isActive ? "bg-green-700 text-white" : "text-green-200 hover:bg-green-800 hover:text-white"
                                 )}
                             >
                                 <Icon size={20} />
@@ -66,10 +66,10 @@ const AdminLayout = () => {
                         );
                     })}
                 </nav>
-                <div className="p-4 border-t border-gray-700">
+                <div className="p-4 border-t border-green-800">
                     <button
                         onClick={handleLogout}
-                        className="flex items-center space-x-3 p-3 w-full text-left text-gray-400 hover:text-white hover:bg-gray-800 rounded transition"
+                        className="flex items-center space-x-3 p-3 w-full text-left text-green-200 hover:text-white hover:bg-green-800 rounded transition"
                     >
                         <LogOut size={20} />
                         <span>Logout</span>
