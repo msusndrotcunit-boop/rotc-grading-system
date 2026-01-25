@@ -40,6 +40,71 @@ const calculateTransmutedGrade = (finalGrade, status) => {
     return { transmutedGrade: typeof transmutedGrade === 'number' ? transmutedGrade.toFixed(2) : transmutedGrade, remarks };
 };
 
+// --- Analytics ---
+
+// Get Dashboard Analytics
+router.get('/analytics', (req, res) => {
+    const analyticsData = {
+        attendance: [],
+        grades: { passed: 0, failed: 0, incomplete: 0 }
+    };
+
+    // 1. Get Attendance Stats (Last 10 training days)
+    const attendanceSql = `
+        SELECT 
+            td.date, 
+            COUNT(CASE WHEN ar.status = 'Present' THEN 1 END) as present,
+            COUNT(CASE WHEN ar.status = 'Absent' THEN 1 END) as absent
+        FROM training_days td
+        LEFT JOIN attendance_records ar ON td.id = ar.training_day_id
+        GROUP BY td.id
+        ORDER BY td.date DESC
+        LIMIT 10
+    `;
+
+    db.all(attendanceSql, [], (err, attendanceRows) => {
+        if (err) return res.status(500).json({ message: err.message });
+        
+        analyticsData.attendance = attendanceRows.reverse(); // Show oldest to newest in chart
+
+        // 2. Get Grade Stats (Reuse cadet grade logic)
+        const cadetsSql = `
+            SELECT c.*, 
+                   g.attendance_present, g.merit_points, g.demerit_points, 
+                   g.prelim_score, g.midterm_score, g.final_score, g.status as grade_status
+            FROM cadets c
+            JOIN users u ON u.cadet_id = c.id
+            LEFT JOIN grades g ON c.id = g.cadet_id
+            WHERE u.is_approved = 1
+        `;
+
+        db.all(cadetsSql, [], (err, cadetRows) => {
+            if (err) return res.status(500).json({ message: err.message });
+
+            cadetRows.forEach(cadet => {
+                const attendanceScore = (cadet.attendance_present / 15) * 30;
+                const aptitudeScore = (cadet.merit_points - cadet.demerit_points) * 0.3;
+                const subjectScore = ((cadet.prelim_score + cadet.midterm_score + cadet.final_score) / 300) * 40;
+                const finalGrade = attendanceScore + aptitudeScore + subjectScore;
+                
+                const { remarks } = calculateTransmutedGrade(finalGrade, cadet.grade_status);
+
+                if (remarks === 'Passed') analyticsData.grades.passed++;
+                else if (remarks === 'Failed') analyticsData.grades.failed++;
+                // Note: Logic implies 'Failed' catches INC/DO/T unless handled specifically, 
+                // but calculateTransmutedGrade marks them as 'Failed'.
+                // If we want separate INC counts, we need to check grade_status directly.
+                if (['INC', 'DO', 'T'].includes(cadet.grade_status)) {
+                    analyticsData.grades.incomplete++;
+                    analyticsData.grades.failed--; // Adjust failed count if we want exclusive categories
+                }
+            });
+
+            res.json(analyticsData);
+        });
+    });
+});
+
 // --- Cadet Management ---
 
 // Get All Cadets (with computed grades) - ONLY APPROVED
