@@ -149,6 +149,14 @@ function initPgDb() {
             description TEXT,
             date TEXT,
             image_path TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS merit_demerit_logs (
+            id SERIAL PRIMARY KEY,
+            cadet_id INTEGER REFERENCES cadets(id) ON DELETE CASCADE,
+            type TEXT CHECK(type IN ('merit', 'demerit')) NOT NULL,
+            points INTEGER NOT NULL,
+            reason TEXT,
+            date_recorded TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`
     ];
 
@@ -225,6 +233,17 @@ function initSqliteDb() {
             description TEXT,
             date TEXT,
             image_path TEXT
+        )`);
+
+        // Merit/Demerit Ledger Table
+        db.run(`CREATE TABLE IF NOT EXISTS merit_demerit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cadet_id INTEGER,
+            type TEXT CHECK(type IN ('merit', 'demerit')) NOT NULL,
+            points INTEGER NOT NULL,
+            reason TEXT,
+            date_recorded TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (cadet_id) REFERENCES cadets(id) ON DELETE CASCADE
         )`);
 
         seedAdmin();

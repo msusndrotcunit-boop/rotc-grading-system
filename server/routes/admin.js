@@ -259,4 +259,56 @@ router.put('/profile', upload.single('profilePic'), (req, res) => {
     }
 });
 
+// --- Merit/Demerit Ledger ---
+
+// Get Logs for a Cadet
+router.get('/merit-logs/:cadetId', (req, res) => {
+    const sql = `SELECT * FROM merit_demerit_logs WHERE cadet_id = ? ORDER BY date_recorded DESC`;
+    db.all(sql, [req.params.cadetId], (err, rows) => {
+        if (err) return res.status(500).json({ message: err.message });
+        res.json(rows);
+    });
+});
+
+// Add Log Entry (and update Total)
+router.post('/merit-logs', (req, res) => {
+    const { cadetId, type, points, reason } = req.body;
+    
+    // 1. Insert Log
+    db.run(`INSERT INTO merit_demerit_logs (cadet_id, type, points, reason) VALUES (?, ?, ?, ?)`, 
+        [cadetId, type, points, reason], 
+        function(err) {
+            if (err) return res.status(500).json({ message: err.message });
+            
+            // 2. Update Total in Grades
+            const column = type === 'merit' ? 'merit_points' : 'demerit_points';
+            // We use standard SQL update. Note: This assumes the row exists. If not, we might need to upsert, but 'grades' should exist for approved cadets.
+            // Safe bet: Check if grade exists first? Usually created on approval or first fetch.
+            // Actually, my 'get cadets' endpoint creates them implicitly? No, it joins.
+            // Let's assume grades row exists. If not, it won't update anything, which is a bug.
+            // Let's ensure grades row exists.
+            
+            db.get(`SELECT id FROM grades WHERE cadet_id = ?`, [cadetId], (err, row) => {
+                if (!row) {
+                    // Create grade row first
+                    db.run(`INSERT INTO grades (cadet_id) VALUES (?)`, [cadetId], (err) => {
+                        if (err) return res.status(500).json({ message: 'Failed to init grades' });
+                        // Now update
+                        db.run(`UPDATE grades SET ${column} = ${column} + ? WHERE cadet_id = ?`, [points, cadetId], (err) => {
+                            if (err) return res.status(500).json({ message: err.message });
+                            res.json({ message: 'Log added and points updated' });
+                        });
+                    });
+                } else {
+                    // Update directly
+                    db.run(`UPDATE grades SET ${column} = ${column} + ? WHERE cadet_id = ?`, [points, cadetId], (err) => {
+                        if (err) return res.status(500).json({ message: err.message });
+                        res.json({ message: 'Log added and points updated' });
+                    });
+                }
+            });
+        }
+    );
+});
+
 module.exports = router;

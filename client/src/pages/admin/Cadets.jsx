@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Pencil, Trash2, GraduationCap, Save, X } from 'lucide-react';
+import { Pencil, Trash2, GraduationCap, Save, X, FileDown } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const Cadets = () => {
     const [cadets, setCadets] = useState([]);
@@ -44,6 +46,48 @@ const Cadets = () => {
         } else {
             setSelectedCadets([...selectedCadets, id]);
         }
+    };
+
+    // PDF Export
+    const handleExportPDF = () => {
+        const doc = new jsPDF();
+        
+        // Add Header
+        doc.setFontSize(18);
+        doc.text('MSU-SND ROTC UNIT - Summary of Grades', 14, 22);
+        doc.setFontSize(11);
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+
+        // Define columns
+        const tableColumn = ["Rank", "Name", "Student ID", "Unit", "Final", "Transmuted", "Remarks"];
+        
+        // Define rows
+        const tableRows = [];
+
+        cadets.forEach(cadet => {
+            const cadetData = [
+                cadet.rank,
+                `${cadet.last_name}, ${cadet.first_name}`,
+                cadet.student_id,
+                `${cadet.company || '-'}/${cadet.platoon || '-'}`,
+                cadet.finalGrade ? cadet.finalGrade.toFixed(2) : '0.00',
+                cadet.transmutedGrade || '-',
+                cadet.remarks || '-'
+            ];
+            tableRows.push(cadetData);
+        });
+
+        // Generate table
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: 40,
+            theme: 'grid',
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [22, 163, 74] } // Military green
+        });
+
+        doc.save('ROTC_Summary_of_Grades.pdf');
     };
 
     // Bulk Delete
@@ -115,15 +159,24 @@ const Cadets = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Cadet Management</h2>
-                {selectedCadets.length > 0 && (
+                <div className="flex space-x-2">
                     <button 
-                        onClick={handleBulkDelete}
-                        className="bg-red-600 text-white px-4 py-2 rounded flex items-center space-x-2 hover:bg-red-700"
+                        onClick={handleExportPDF}
+                        className="bg-green-700 text-white px-4 py-2 rounded flex items-center space-x-2 hover:bg-green-800"
                     >
-                        <Trash2 size={18} />
-                        <span>Delete ({selectedCadets.length})</span>
+                        <FileDown size={18} />
+                        <span>Export PDF</span>
                     </button>
-                )}
+                    {selectedCadets.length > 0 && (
+                        <button 
+                            onClick={handleBulkDelete}
+                            className="bg-red-600 text-white px-4 py-2 rounded flex items-center space-x-2 hover:bg-red-700"
+                        >
+                            <Trash2 size={18} />
+                            <span>Delete ({selectedCadets.length})</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="bg-white rounded shadow overflow-x-auto">
