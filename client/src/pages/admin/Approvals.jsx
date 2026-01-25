@@ -6,14 +6,16 @@ import { Check, X } from 'lucide-react';
 const Approvals = () => {
     const { token } = useAuth();
     const [users, setUsers] = useState([]);
+    const [filter, setFilter] = useState('pending');
 
     useEffect(() => {
-        fetchPendingUsers();
-    }, []);
+        fetchUsers();
+    }, [filter]);
 
-    const fetchPendingUsers = async () => {
+    const fetchUsers = async () => {
         try {
-            const response = await axios.get('/api/admin/users?pending=true', {
+            const endpoint = filter === 'pending' ? '/api/admin/users?pending=true' : '/api/admin/users';
+            const response = await axios.get(endpoint, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setUsers(response.data);
@@ -21,6 +23,8 @@ const Approvals = () => {
             console.error('Error fetching users:', error);
         }
     };
+
+    const fetchPendingUsers = fetchUsers;
 
     const handleApprove = async (id) => {
         try {
