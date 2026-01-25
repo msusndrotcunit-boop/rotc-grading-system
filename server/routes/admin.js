@@ -125,7 +125,8 @@ router.get('/cadets', (req, res) => {
         // Calculate grades for each cadet
         const cadetsWithGrades = rows.map(cadet => {
             const attendanceScore = (cadet.attendance_present / 15) * 30; // 30%
-            const aptitudeScore = (cadet.merit_points - cadet.demerit_points) * 0.3; 
+            // Base Aptitude 100
+            const aptitudeScore = Math.max(0, (100 + cadet.merit_points - cadet.demerit_points)) * 0.3; 
             const subjectScore = ((cadet.prelim_score + cadet.midterm_score + cadet.final_score) / 300) * 40; // 40%
 
             const finalGrade = attendanceScore + aptitudeScore + subjectScore;

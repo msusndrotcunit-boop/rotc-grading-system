@@ -57,7 +57,8 @@ router.get('/my-grades', (req, res) => {
 
         // Calculate Grades
         const attendanceScore = (gradeData.attendance_present / 15) * 30;
-        const aptitudeScore = (gradeData.merit_points - gradeData.demerit_points) * 0.3;
+        // Base Aptitude 100
+        const aptitudeScore = Math.max(0, (100 + gradeData.merit_points - gradeData.demerit_points)) * 0.3;
         const subjectScore = ((gradeData.prelim_score + gradeData.midterm_score + gradeData.final_score) / 300) * 40;
         const finalGrade = attendanceScore + aptitudeScore + subjectScore;
 
