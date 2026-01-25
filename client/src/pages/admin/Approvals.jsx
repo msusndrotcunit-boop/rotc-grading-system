@@ -4,7 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { Check, X } from 'lucide-react';
 
 const Approvals = () => {
-    const { token } = useAuth();
+    const { user } = useAuth();
+    const token = user?.token;
     const [users, setUsers] = useState([]);
     const [filter, setFilter] = useState('pending');
 
