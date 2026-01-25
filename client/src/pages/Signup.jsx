@@ -40,9 +40,9 @@ const Signup = () => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-100 py-10">
-            <div className="bg-white p-8 rounded shadow-md w-full max-w-2xl">
-                <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Cadet Registration</h2>
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-gray-900 py-10">
+            <div className="bg-white/95 backdrop-blur-md p-8 rounded-lg shadow-2xl w-full max-w-2xl border border-green-700/30">
+                <h2 className="text-2xl font-bold mb-6 text-center text-green-900">Cadet Registration</h2>
                 {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
                 <form onSubmit={handleSubmit} className="space-y-4">
                     

@@ -29,8 +29,8 @@ const Login = () => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-100">
-            <div className="bg-white p-8 rounded shadow-md w-full max-w-md">
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-gray-900">
+            <div className="bg-white/90 backdrop-blur-md p-8 rounded-lg shadow-2xl w-full max-w-md border border-green-700/30">
                 <div className="flex justify-center items-center space-x-4 mb-6">
                     {/* 1002nd CDC Logo */}
                     <img 
