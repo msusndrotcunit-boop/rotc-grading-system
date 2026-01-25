@@ -73,7 +73,8 @@ const Profile = () => {
                 status: data.status || 'Ongoing'
             });
             if (data.profile_pic) {
-                setPreview(`${import.meta.env.VITE_API_URL || ''}${data.profile_pic}`);
+                const normalizedPath = data.profile_pic.replace(/\\/g, '/');
+                setPreview(`${import.meta.env.VITE_API_URL || ''}${normalizedPath}`);
             }
             setLoading(false);
         } catch (err) {
