@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Trash2, Plus, Calendar } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
+import { cacheData, getCachedData } from '../../utils/db';
 
 const Activities = () => {
     const [activities, setActivities] = useState([]);
@@ -13,9 +14,21 @@ const Activities = () => {
     }, []);
 
     const fetchActivities = async () => {
+        // 1. Load from Cache first
+        try {
+            const cached = await getCachedData('activities');
+            if (cached && cached.length > 0) {
+                setActivities(cached);
+            }
+        } catch (cacheErr) {
+            console.warn("Failed to load from cache", cacheErr);
+        }
+
+        // 2. Network Fetch
         try {
             const res = await axios.get('/api/cadet/activities');
             setActivities(res.data);
+            await cacheData('activities', res.data);
         } catch (err) {
             console.error(err);
         }

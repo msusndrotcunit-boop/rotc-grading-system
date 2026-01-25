@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Pencil, Trash2, GraduationCap, Save, X, FileDown } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { cacheData, getCachedData } from '../../utils/db';
 
 const Cadets = () => {
     const [cadets, setCadets] = useState([]);
@@ -21,12 +22,26 @@ const Cadets = () => {
     }, []);
 
     const fetchCadets = async () => {
+        // 1. Load from Cache first (Instant load)
+        try {
+            const cachedCadets = await getCachedData('cadets');
+            if (cachedCadets && cachedCadets.length > 0) {
+                setCadets(cachedCadets);
+                setLoading(false);
+            }
+        } catch (cacheErr) {
+            console.warn("Failed to load from cache", cacheErr);
+        }
+
+        // 2. Fetch from Network (Background sync)
         try {
             const res = await axios.get('/api/admin/cadets');
             setCadets(res.data);
+            await cacheData('cadets', res.data);
             setLoading(false);
         } catch (err) {
-            console.error(err);
+            console.error("Network request failed", err);
+            // If cache was empty and network failed, stop loading
             setLoading(false);
         }
     };
