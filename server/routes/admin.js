@@ -416,4 +416,28 @@ router.post('/merit-logs', (req, res) => {
     );
 });
 
+// Delete Merit/Demerit Log
+router.delete('/merit-logs/:id', (req, res) => {
+    const logId = req.params.id;
+
+    // 1. Get the log details first to know what to subtract
+    db.get(`SELECT * FROM merit_demerit_logs WHERE id = ?`, [logId], (err, log) => {
+        if (err) return res.status(500).json({ message: err.message });
+        if (!log) return res.status(404).json({ message: 'Log not found' });
+
+        // 2. Delete the log
+        db.run(`DELETE FROM merit_demerit_logs WHERE id = ?`, [logId], (err) => {
+            if (err) return res.status(500).json({ message: err.message });
+
+            // 3. Reverse the points in grades table
+            const column = log.type === 'merit' ? 'merit_points' : 'demerit_points';
+            
+            db.run(`UPDATE grades SET ${column} = ${column} - ? WHERE cadet_id = ?`, [log.points, log.cadet_id], (err) => {
+                if (err) console.error("Error updating grades after log deletion", err);
+                res.json({ message: 'Log deleted and points reverted' });
+            });
+        });
+    });
+});
+
 module.exports = router;

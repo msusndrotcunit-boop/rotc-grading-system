@@ -11,6 +11,7 @@ import Signup from './pages/Signup';
 import AdminLayout from './layouts/AdminLayout';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminCadets from './pages/admin/Cadets';
+import AdminGrading from './pages/admin/Grading';
 import AdminAttendance from './pages/admin/Attendance';
 import AdminActivities from './pages/admin/Activities';
 import AdminApprovals from './pages/admin/Approvals';
@@ -36,6 +37,7 @@ function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="cadets" element={<AdminCadets />} />
+              <Route path="grading" element={<AdminGrading />} />
               <Route path="attendance" element={<AdminAttendance />} />
               <Route path="activities" element={<AdminActivities />} />
               <Route path="approvals" element={<AdminApprovals />} />

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Users, Calendar, LogOut, UserCheck, User, Menu, X, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, LogOut, UserCheck, User, Menu, X, ClipboardList, Calculator } from 'lucide-react';
 import clsx from 'clsx';
 
 const AdminLayout = () => {
@@ -19,7 +19,8 @@ const AdminLayout = () => {
 
     const navItems = [
         { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { path: '/admin/cadets', label: 'Cadet & Grading', icon: Users },
+        { path: '/admin/cadets', label: 'Cadet Management', icon: Users },
+        { path: '/admin/grading', label: 'Grading Management', icon: Calculator },
         { path: '/admin/attendance', label: 'Attendance', icon: ClipboardList },
         { path: '/admin/activities', label: 'Activities', icon: Calendar },
         { path: '/admin/approvals', label: 'Approvals', icon: UserCheck },
