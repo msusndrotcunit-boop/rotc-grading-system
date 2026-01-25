@@ -6,16 +6,12 @@ const path = require('path');
 
 const router = express.Router();
 
-// Multer Setup
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + path.extname(file.originalname));
-    }
+// Multer Setup (Memory Storage for Base64)
+const storage = multer.memoryStorage();
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
-const upload = multer({ storage: storage });
 
 router.use(authenticateToken);
 router.use(isAdmin);
@@ -162,7 +158,12 @@ router.put('/grades/:cadetId', (req, res) => {
 // Upload Activity
 router.post('/activities', upload.single('image'), (req, res) => {
     const { title, description, date } = req.body;
-    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+    
+    // Convert buffer to Base64 Data URI if file exists
+    let imagePath = null;
+    if (req.file) {
+        imagePath = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    }
 
     db.run(`INSERT INTO activities (title, description, date, image_path) VALUES (?, ?, ?, ?)`,
         [title, description, date, imagePath],
