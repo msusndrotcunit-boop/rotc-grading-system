@@ -157,6 +157,20 @@ function initPgDb() {
             points INTEGER NOT NULL,
             reason TEXT,
             date_recorded TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS training_days (
+            id SERIAL PRIMARY KEY,
+            date TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT
+        )`,
+        `CREATE TABLE IF NOT EXISTS attendance_records (
+            id SERIAL PRIMARY KEY,
+            training_day_id INTEGER NOT NULL REFERENCES training_days(id) ON DELETE CASCADE,
+            cadet_id INTEGER NOT NULL REFERENCES cadets(id) ON DELETE CASCADE,
+            status TEXT CHECK(status IN ('present', 'absent', 'late', 'excused')) NOT NULL,
+            remarks TEXT,
+            UNIQUE(training_day_id, cadet_id)
         )`
     ];
 
