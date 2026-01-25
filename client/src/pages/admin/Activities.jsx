@@ -1,0 +1,140 @@
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { Trash2, Plus, Calendar } from 'lucide-react';
+
+const Activities = () => {
+    const [activities, setActivities] = useState([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [form, setForm] = useState({ title: '', description: '', date: '', image: null });
+
+    useEffect(() => {
+        fetchActivities();
+    }, []);
+
+    const fetchActivities = async () => {
+        try {
+            const res = await axios.get('/api/cadet/activities');
+            setActivities(res.data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleFileChange = (e) => {
+        setForm({ ...form, image: e.target.files[0] });
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        const formData = new FormData();
+        formData.append('title', form.title);
+        formData.append('description', form.description);
+        formData.append('date', form.date);
+        if (form.image) formData.append('image', form.image);
+
+        try {
+            await axios.post('/api/admin/activities', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            fetchActivities();
+            setIsModalOpen(false);
+            setForm({ title: '', description: '', date: '', image: null });
+        } catch (err) {
+            alert('Error uploading activity');
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!confirm('Delete this activity?')) return;
+        try {
+            await axios.delete(`/api/admin/activities/${id}`);
+            setActivities(activities.filter(a => a.id !== id));
+        } catch (err) {
+            alert('Error deleting activity');
+        }
+    };
+
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Activity Management</h2>
+                <button 
+                    onClick={() => setIsModalOpen(true)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded flex items-center space-x-2 hover:bg-blue-700"
+                >
+                    <Plus size={18} />
+                    <span>New Activity</span>
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {activities.map(activity => (
+                    <div key={activity.id} className="bg-white rounded shadow overflow-hidden">
+                        {activity.image_path && (
+                            <img 
+                                src={`${import.meta.env.VITE_API_URL}${activity.image_path}`} 
+                                alt={activity.title} 
+                                className="w-full h-48 object-cover"
+                            />
+                        )}
+                        <div className="p-4">
+                            <h3 className="text-lg font-bold mb-2">{activity.title}</h3>
+                            <div className="flex items-center text-gray-500 text-sm mb-2">
+                                <Calendar size={14} className="mr-1" />
+                                {activity.date}
+                            </div>
+                            <p className="text-gray-600 text-sm mb-4 line-clamp-3">{activity.description}</p>
+                            <button 
+                                onClick={() => handleDelete(activity.id)}
+                                className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center"
+                            >
+                                <Trash2 size={16} className="mr-1" /> Delete
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {isModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg w-full max-w-md p-6">
+                        <h3 className="text-xl font-bold mb-4">Add New Activity</h3>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <input 
+                                className="w-full border p-2 rounded" 
+                                placeholder="Activity Title" 
+                                value={form.title} 
+                                onChange={e => setForm({...form, title: e.target.value})} 
+                                required 
+                            />
+                            <textarea 
+                                className="w-full border p-2 rounded h-24" 
+                                placeholder="Description" 
+                                value={form.description} 
+                                onChange={e => setForm({...form, description: e.target.value})} 
+                            />
+                            <input 
+                                type="date" 
+                                className="w-full border p-2 rounded" 
+                                value={form.date} 
+                                onChange={e => setForm({...form, date: e.target.value})} 
+                            />
+                            <input 
+                                type="file" 
+                                className="w-full border p-2 rounded" 
+                                onChange={handleFileChange} 
+                                accept="image/*"
+                            />
+                            <div className="flex space-x-2">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="w-1/2 border py-2 rounded">Cancel</button>
+                                <button type="submit" className="w-1/2 bg-blue-600 text-white py-2 rounded">Upload</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default Activities;
