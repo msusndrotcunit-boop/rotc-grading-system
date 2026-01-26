@@ -1,59 +1,68 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Pages
-import Login from './pages/Login';
+// Lazy Load Pages
+const Login = lazy(() => import('./pages/Login'));
 
 // Admin Pages
-import AdminLayout from './layouts/AdminLayout';
-import AdminDashboard from './pages/admin/Dashboard';
-import AdminCadets from './pages/admin/Cadets';
-import AdminGrading from './pages/admin/Grading';
-import AdminAttendance from './pages/admin/Attendance';
-import AdminActivities from './pages/admin/Activities';
-import AdminProfile from './pages/admin/Profile';
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminCadets = lazy(() => import('./pages/admin/Cadets'));
+const AdminGrading = lazy(() => import('./pages/admin/Grading'));
+const AdminAttendance = lazy(() => import('./pages/admin/Attendance'));
+const AdminActivities = lazy(() => import('./pages/admin/Activities'));
+const AdminProfile = lazy(() => import('./pages/admin/Profile'));
 
 // Cadet Pages
-import CadetLayout from './layouts/CadetLayout';
-import CadetDashboard from './pages/cadet/Dashboard';
-import CadetProfile from './pages/cadet/Profile';
+const CadetLayout = lazy(() => import('./layouts/CadetLayout'));
+const CadetDashboard = lazy(() => import('./pages/cadet/Dashboard'));
+const CadetProfile = lazy(() => import('./pages/cadet/Profile'));
+
+// Loading Fallback
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+  </div>
+);
 
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
+        <Suspense fallback={<LoadingSpinner />}>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
 
-          {/* Admin Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="cadets" element={<AdminCadets />} />
-              <Route path="grading" element={<AdminGrading />} />
-              <Route path="attendance" element={<AdminAttendance />} />
-              <Route path="activities" element={<AdminActivities />} />
-              <Route path="profile" element={<AdminProfile />} />
-              <Route index element={<Navigate to="dashboard" replace />} />
+            {/* Admin Routes */}
+            <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="cadets" element={<AdminCadets />} />
+                <Route path="grading" element={<AdminGrading />} />
+                <Route path="attendance" element={<AdminAttendance />} />
+                <Route path="activities" element={<AdminActivities />} />
+                <Route path="profile" element={<AdminProfile />} />
+                <Route index element={<Navigate to="dashboard" replace />} />
+              </Route>
             </Route>
-          </Route>
 
-          {/* Cadet Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['cadet']} />}>
-            <Route path="/cadet" element={<CadetLayout />}>
-              <Route path="dashboard" element={<CadetDashboard />} />
-              <Route path="profile" element={<CadetProfile />} />
-              <Route index element={<Navigate to="dashboard" replace />} />
+            {/* Cadet Routes */}
+            <Route element={<ProtectedRoute allowedRoles={['cadet']} />}>
+              <Route path="/cadet" element={<CadetLayout />}>
+                <Route path="dashboard" element={<CadetDashboard />} />
+                <Route path="profile" element={<CadetProfile />} />
+                <Route index element={<Navigate to="dashboard" replace />} />
+              </Route>
             </Route>
-          </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </Suspense>
       </AuthProvider>
     </Router>
   );

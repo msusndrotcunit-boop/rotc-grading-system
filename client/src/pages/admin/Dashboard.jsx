@@ -39,12 +39,6 @@ const Dashboard = () => {
         fetchStats();
     }, []);
 
-    const COLORS = {
-        Passed: '#22c55e', // Green
-        Failed: '#ef4444', // Red
-        Incomplete: '#f59e0b' // Amber
-    };
-
     return (
         <div className="space-y-6">
             {/* KPI Cards */}

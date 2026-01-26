@@ -81,8 +81,11 @@ const Cadets = () => {
         }
     };
 
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         try {
+            const jsPDF = (await import('jspdf')).default;
+            const autoTable = (await import('jspdf-autotable')).default;
+
             const doc = new jsPDF();
             
             doc.setFontSize(18);
