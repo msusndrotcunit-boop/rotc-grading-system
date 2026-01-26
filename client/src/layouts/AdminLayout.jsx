@@ -23,7 +23,7 @@ const AdminLayout = () => {
         { path: '/admin/grading', label: 'Grading Management', icon: Calculator },
         { path: '/admin/attendance', label: 'Attendance', icon: ClipboardList },
         { path: '/admin/activities', label: 'Activities', icon: Calendar },
-        { path: '/admin/approvals', label: 'Approvals', icon: UserCheck },
+        // { path: '/admin/approvals', label: 'Approvals', icon: UserCheck }, // Removed as approvals are automated via import
         { path: '/admin/profile', label: 'Profile', icon: User },
     ];
 

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { User, ShieldCheck } from 'lucide-react';
 
 const Login = () => {
-    const [formData, setFormData] = useState({ username: '', password: '' });
+    const [isCadetLogin, setIsCadetLogin] = useState(true);
+    const [formData, setFormData] = useState({ username: '', password: '', identifier: '' });
     const [error, setError] = useState('');
     const { login } = useAuth();
     const navigate = useNavigate();
@@ -15,8 +17,15 @@ const Login = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
         try {
-            const response = await axios.post('/api/auth/login', formData);
+            let response;
+            if (isCadetLogin) {
+                response = await axios.post('/api/auth/cadet-login', { identifier: formData.identifier });
+            } else {
+                response = await axios.post('/api/auth/login', { username: formData.username, password: formData.password });
+            }
+
             login(response.data);
             if (response.data.role === 'admin') {
                 navigate('/admin/dashboard');
@@ -51,39 +60,76 @@ const Login = () => {
                         className="w-24 h-24 object-contain"
                     />
                 </div>
-                <h2 className="text-2xl font-bold mb-6 text-center text-green-900">MSU-SND ROTC UNIT Grading Management Login</h2>
-                {error && <p className="text-red-500 mb-4">{error}</p>}
+                <h2 className="text-2xl font-bold mb-6 text-center text-green-900">MSU-SND ROTC UNIT Grading Management</h2>
+                
+                {/* Login Type Toggle */}
+                <div className="flex mb-6 bg-gray-200 rounded p-1">
+                    <button
+                        className={`flex-1 flex items-center justify-center py-2 rounded text-sm font-semibold transition ${isCadetLogin ? 'bg-white shadow text-green-800' : 'text-gray-600 hover:text-green-800'}`}
+                        onClick={() => setIsCadetLogin(true)}
+                    >
+                        <User size={18} className="mr-2" />
+                        Cadet Login
+                    </button>
+                    <button
+                        className={`flex-1 flex items-center justify-center py-2 rounded text-sm font-semibold transition ${!isCadetLogin ? 'bg-white shadow text-green-800' : 'text-gray-600 hover:text-green-800'}`}
+                        onClick={() => setIsCadetLogin(false)}
+                    >
+                        <ShieldCheck size={18} className="mr-2" />
+                        Admin Login
+                    </button>
+                </div>
+
+                {error && <p className="text-red-500 mb-4 text-center text-sm font-semibold bg-red-50 p-2 rounded border border-red-200">{error}</p>}
+                
                 <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <label className="block text-gray-700 font-semibold">Username</label>
-                        <input
-                            type="text"
-                            name="username"
-                            className="w-full border-gray-300 rounded px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent"
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
-                    <div className="mb-6">
-                        <label className="block text-gray-700 font-semibold">Password</label>
-                        <input
-                            type="password"
-                            name="password"
-                            className="w-full border-gray-300 rounded px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent"
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
+                    {isCadetLogin ? (
+                        <div className="mb-6">
+                            <label className="block text-gray-700 font-semibold mb-2">Username or Email Address</label>
+                            <input
+                                type="text"
+                                name="identifier"
+                                placeholder="Enter your Username or Email"
+                                className="w-full border-gray-300 rounded px-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent bg-white shadow-inner"
+                                onChange={handleChange}
+                                required
+                            />
+                            <p className="text-xs text-gray-500 mt-2 italic">
+                                Note: You must be included in the official ROTCMIS list to login. No password required.
+                            </p>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="mb-4">
+                                <label className="block text-gray-700 font-semibold">Username</label>
+                                <input
+                                    type="text"
+                                    name="username"
+                                    className="w-full border-gray-300 rounded px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent"
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-6">
+                                <label className="block text-gray-700 font-semibold">Password</label>
+                                <input
+                                    type="password"
+                                    name="password"
+                                    className="w-full border-gray-300 rounded px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent"
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                        </>
+                    )}
+
                     <button
                         type="submit"
-                        className="w-full bg-green-800 text-white py-2 rounded font-bold uppercase tracking-wider hover:bg-green-900 transition shadow-lg"
+                        className="w-full bg-green-800 text-white py-3 rounded font-bold uppercase tracking-wider hover:bg-green-900 transition shadow-lg mt-2"
                     >
-                        Login
+                        {isCadetLogin ? 'Access Portal' : 'Login as Admin'}
                     </button>
                 </form>
-                <div className="mt-4 text-center">
-                    <p className="text-sm">Don't have a cadet account? <Link to="/signup" className="text-green-800 font-semibold hover:underline">Sign Up</Link></p>
-                </div>
             </div>
         </div>
     );

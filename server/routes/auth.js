@@ -6,75 +6,8 @@ const { SECRET_KEY } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Register (Sign Up) for Cadets
-router.post('/signup', async (req, res) => {
-    const { 
-        username, password, 
-        rank, firstName, middleName, lastName, suffixName, 
-        studentId, email, contactNumber, address, 
-        course, yearLevel, schoolYear, 
-        battalion, company, platoon, 
-        cadetCourse, semester, status 
-    } = req.body;
-
-    if (!username || !password || !firstName || !lastName || !studentId) {
-        return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Transaction-like approach (manual rollback on error ideally, but simplified here)
-    db.serialize(() => {
-        // 1. Insert Cadet
-        const sql = `INSERT INTO cadets (
-            rank, first_name, middle_name, last_name, suffix_name, 
-            student_id, email, contact_number, address, 
-            course, year_level, school_year, 
-            battalion, company, platoon, 
-            cadet_course, semester, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-        const params = [
-            rank, firstName, middleName, lastName, suffixName, 
-            studentId, email, contactNumber, address, 
-            course, yearLevel, schoolYear, 
-            battalion, company, platoon, 
-            cadetCourse, semester, status || 'Ongoing'
-        ];
-
-        db.run(sql, params, function(err) {
-            if (err) {
-                return res.status(500).json({ message: 'Error creating cadet profile: ' + err.message });
-            }
-            const cadetId = this.lastID;
-
-            // 2. Insert User
-            // Default is_approved = 0 (false) for cadets
-            // But if email is msusndrotcunit@gmail.com, auto-approve?
-            // "Only msusndrotcunit@gmail.com account can only access unless approved"
-            const isApproved = email === 'msusndrotcunit@gmail.com' ? 1 : 0;
-
-            db.run(`INSERT INTO users (username, password, role, cadet_id, is_approved, email) VALUES (?, ?, ?, ?, ?, ?)`, 
-                [username, hashedPassword, 'cadet', cadetId, isApproved, email], 
-                function(err) {
-                    if (err) {
-                        // Ideally delete cadet here
-                        return res.status(500).json({ message: 'Error creating user account: ' + err.message });
-                    }
-
-                    // 3. Initialize Grades
-                    db.run(`INSERT INTO grades (cadet_id) VALUES (?)`, [cadetId], (err) => {
-                        if (err) {
-                            console.error("Error initializing grades", err);
-                        }
-                        console.log(`User created: ${username} (ID: ${this.lastID}, Cadet ID: ${cadetId}, Approved: ${isApproved})`);
-                        res.status(201).json({ message: 'Cadet registered successfully' });
-                    });
-                }
-            );
-        });
-    });
-});
+// Register (Sign Up) for Cadets - REMOVED
+// router.post('/signup', ...);
 
 // Login
 router.post('/login', (req, res) => {
@@ -92,6 +25,37 @@ router.post('/login', (req, res) => {
         if (!validPassword) return res.status(400).json({ message: 'Invalid credentials' });
 
         const token = jwt.sign({ id: user.id, role: user.role, cadetId: user.cadet_id }, SECRET_KEY, { expiresIn: '1h' });
+        
+        res.json({ token, role: user.role, cadetId: user.cadet_id });
+    });
+});
+
+// Cadet Login (No Password)
+router.post('/cadet-login', (req, res) => {
+    const { identifier } = req.body; // Can be Student ID or Email
+
+    if (!identifier) {
+        return res.status(400).json({ message: 'Please enter your Username or Email.' });
+    }
+
+    // Check by Username (Student ID) or Email
+    // Only for role = 'cadet'
+    const sql = `SELECT * FROM users WHERE (username = ? OR email = ?) AND role = 'cadet'`;
+    
+    db.get(sql, [identifier, identifier], (err, user) => {
+        if (err) return res.status(500).json({ message: err.message });
+        
+        if (!user) {
+            return res.status(400).json({ message: 'User not found. Please contact your administrator if you believe this is an error.' });
+        }
+
+        if (user.is_approved === 0) {
+            // Should be rare if imported, but safe check
+            return res.status(403).json({ message: 'Your account is not authorized.' });
+        }
+
+        // Generate Token
+        const token = jwt.sign({ id: user.id, role: user.role, cadetId: user.cadet_id }, SECRET_KEY, { expiresIn: '24h' }); // Longer session for cadets?
         
         res.json({ token, role: user.role, cadetId: user.cadet_id });
     });

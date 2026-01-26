@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Pencil, Trash2, X, FileDown } from 'lucide-react';
+import { Pencil, Trash2, X, FileDown, Upload } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { cacheData, getCachedData } from '../../utils/db';
@@ -11,6 +11,11 @@ const Cadets = () => {
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [currentCadet, setCurrentCadet] = useState(null);
+
+    // Import State
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [importing, setImporting] = useState(false);
 
     // Form States
     const [editForm, setEditForm] = useState({});
@@ -313,6 +318,55 @@ const Cadets = () => {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Import Modal */}
+            {isImportModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold">Import Cadet List</h3>
+                            <button onClick={() => setIsImportModalOpen(false)}><X size={20} /></button>
+                        </div>
+                        <div className="text-sm text-gray-600 mb-4 space-y-2">
+                            <p>Upload the official list of cadets from ROTCMIS.</p>
+                            <p><b>Supported Format:</b> Excel (.xlsx, .xls) or CSV</p>
+                            <p className="text-xs italic text-gray-500">
+                                This will automatically create user accounts for new cadets and update existing information. 
+                                Cadets can login using their Student ID or Email.
+                            </p>
+                        </div>
+                        <form onSubmit={handleImport} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Select File</label>
+                                <input 
+                                    type="file" 
+                                    accept=".csv, .xlsx, .xls"
+                                    required
+                                    className="w-full border p-2 rounded"
+                                    onChange={e => setImportFile(e.target.files[0])}
+                                />
+                            </div>
+                            <div className="flex space-x-3 pt-4">
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsImportModalOpen(false)}
+                                    className="flex-1 py-2 border rounded hover:bg-gray-50"
+                                    disabled={importing}
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit"
+                                    className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex justify-center items-center"
+                                    disabled={importing}
+                                >
+                                    {importing ? 'Importing...' : 'Import List'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

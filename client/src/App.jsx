@@ -5,7 +5,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages
 import Login from './pages/Login';
-import Signup from './pages/Signup';
 
 // Admin Pages
 import AdminLayout from './layouts/AdminLayout';

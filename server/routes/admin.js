@@ -17,6 +17,197 @@ const upload = multer({
 router.use(authenticateToken);
 router.use(isAdmin);
 
+// --- Import Official Cadet List ---
+
+router.post('/import-cadets', upload.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+    try {
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(sheet);
+
+        let successCount = 0;
+        let failCount = 0;
+        const errors = [];
+
+        // DB Helpers (Promisified)
+        const getCadetByStudentId = (studentId) => {
+            return new Promise((resolve, reject) => {
+                db.get('SELECT * FROM cadets WHERE student_id = ?', [studentId], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+        };
+
+        const getUserByCadetId = (cadetId) => {
+            return new Promise((resolve, reject) => {
+                db.get('SELECT * FROM users WHERE cadet_id = ?', [cadetId], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+        };
+
+        const insertCadet = (cadet) => {
+            return new Promise((resolve, reject) => {
+                const sql = `INSERT INTO cadets (
+                    rank, first_name, middle_name, last_name, suffix_name, 
+                    student_id, email, contact_number, address, 
+                    course, year_level, school_year, 
+                    battalion, company, platoon, 
+                    cadet_course, semester, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+                const params = [
+                    cadet.rank || '', cadet.first_name || '', cadet.middle_name || '', cadet.last_name || '', cadet.suffix_name || '',
+                    cadet.student_id, cadet.email || '', cadet.contact_number || '', cadet.address || '',
+                    cadet.course || '', cadet.year_level || '', cadet.school_year || '',
+                    cadet.battalion || '', cadet.company || '', cadet.platoon || '',
+                    cadet.cadet_course || '', cadet.semester || '', 'Ongoing'
+                ];
+
+                db.run(sql, params, function(err) {
+                    if (err) reject(err);
+                    else resolve(this.lastID);
+                });
+            });
+        };
+
+        const updateCadet = (id, cadet) => {
+            return new Promise((resolve, reject) => {
+                const sql = `UPDATE cadets SET 
+                    rank = ?, first_name = ?, middle_name = ?, last_name = ?, suffix_name = ?, 
+                    email = ?, contact_number = ?, address = ?, 
+                    course = ?, year_level = ?, school_year = ?, 
+                    battalion = ?, company = ?, platoon = ?, 
+                    cadet_course = ?, semester = ?
+                    WHERE id = ?`;
+
+                const params = [
+                    cadet.rank || '', cadet.first_name || '', cadet.middle_name || '', cadet.last_name || '', cadet.suffix_name || '',
+                    cadet.email || '', cadet.contact_number || '', cadet.address || '',
+                    cadet.course || '', cadet.year_level || '', cadet.school_year || '',
+                    cadet.battalion || '', cadet.company || '', cadet.platoon || '',
+                    cadet.cadet_course || '', cadet.semester || '',
+                    id
+                ];
+
+                db.run(sql, params, (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            });
+        };
+
+        const upsertUser = (cadetId, studentId, email) => {
+            return new Promise(async (resolve, reject) => {
+                try {
+                    const existingUser = await getUserByCadetId(cadetId);
+                    // Use Student ID as username
+                    const username = studentId;
+                    
+                    if (!existingUser) {
+                        // Create User
+                        // is_approved = 1 (Auto-approved since imported by admin)
+                        // password = NULL (or a default hash if DB requires NOT NULL). 
+                        // Since we are doing "no password login", we can set a dummy unguessable password 
+                        // OR modify DB schema. Let's set a dummy hash for now to satisfy NOT NULL constraints if any.
+                        // But wait, user schema might require password.
+                        // Let's use a dummy password that no one knows.
+                        const dummyHash = '$2a$10$DUMMYPASSWORDHASHDO_NOT_USE_OR_YOU_WILL_BE_HACKED'; 
+
+                        db.run(`INSERT INTO users (username, password, role, cadet_id, is_approved, email) VALUES (?, ?, ?, ?, ?, ?)`, 
+                            [username, dummyHash, 'cadet', cadetId, 1, email], 
+                            (err) => {
+                                if (err) reject(err);
+                                else {
+                                    // Initialize Grades
+                                    db.run(`INSERT INTO grades (cadet_id) VALUES (?)`, [cadetId], (err) => {
+                                        if (err) console.error("Error initializing grades", err);
+                                        resolve();
+                                    });
+                                }
+                            }
+                        );
+                    } else {
+                        // Update Email and Ensure Approved
+                        db.run(`UPDATE users SET email = ?, is_approved = 1 WHERE id = ?`, [email, existingUser.id], (err) => {
+                            if (err) reject(err);
+                            else resolve();
+                        });
+                    }
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        };
+
+        for (const row of data) {
+            // Mapping Logic: Expect headers like "Student ID", "Last Name", etc.
+            const studentId = row['Student ID'] || row['student_id'] || row['ID'];
+            
+            if (!studentId) {
+                failCount++;
+                errors.push("Missing Student ID");
+                continue;
+            }
+
+            const cadetData = {
+                student_id: studentId,
+                last_name: row['Last Name'] || row['last_name'] || row['Surname'] || '',
+                first_name: row['First Name'] || row['first_name'] || '',
+                middle_name: row['Middle Name'] || row['middle_name'] || '',
+                suffix_name: row['Suffix'] || row['suffix_name'] || '',
+                rank: row['Rank'] || row['rank'] || '',
+                email: row['Email'] || row['email'] || '',
+                contact_number: row['Contact Number'] || row['contact_number'] || '',
+                address: row['Address'] || row['address'] || '',
+                course: row['Course'] || row['course'] || '',
+                year_level: row['Year Level'] || row['year_level'] || '',
+                school_year: row['School Year'] || row['school_year'] || '',
+                battalion: row['Battalion'] || row['battalion'] || '',
+                company: row['Company'] || row['company'] || '',
+                platoon: row['Platoon'] || row['platoon'] || '',
+                cadet_course: row['Cadet Course'] || row['cadet_course'] || '', // MS1, MS2...
+                semester: row['Semester'] || row['semester'] || ''
+            };
+
+            try {
+                let cadetId;
+                const existingCadet = await getCadetByStudentId(studentId);
+
+                if (existingCadet) {
+                    cadetId = existingCadet.id;
+                    await updateCadet(cadetId, cadetData);
+                } else {
+                    cadetId = await insertCadet(cadetData);
+                }
+
+                // Ensure User account exists for login
+                await upsertUser(cadetId, studentId, cadetData.email, customUsername);
+
+                successCount++;
+            } catch (err) {
+                console.error(`Error processing ${studentId}:`, err);
+                failCount++;
+                errors.push(`${studentId}: ${err.message}`);
+            }
+        }
+
+        res.json({ 
+            message: `Import complete. Success: ${successCount}, Failed: ${failCount}`,
+            errors: errors.slice(0, 10)
+        });
+
+    } catch (error) {
+        console.error('Import error:', error);
+        res.status(500).json({ message: 'Failed to process file' });
+    }
+});
+
 // Helper: Transmuted Grade Logic
 const calculateTransmutedGrade = (finalGrade, status) => {
     // Priority to status

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar, Plus, Trash2, CheckCircle, XCircle, Clock, AlertTriangle, Save, Search, ChevronRight } from 'lucide-react';
+import { Calendar, Plus, Trash2, CheckCircle, XCircle, Clock, AlertTriangle, Save, Search, ChevronRight, Upload } from 'lucide-react';
 
 const Attendance = () => {
     const [days, setDays] = useState([]);
@@ -10,6 +10,11 @@ const Attendance = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [createForm, setCreateForm] = useState({ date: '', title: '', description: '' });
     
+    // Import State
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [importFile, setImportFile] = useState(null);
+    const [importing, setImporting] = useState(false);
+
     // Filters for marking
     const [filterCompany, setFilterCompany] = useState('');
     const [filterPlatoon, setFilterPlatoon] = useState('');
@@ -64,6 +69,34 @@ const Attendance = () => {
         } catch (err) {
             console.error(err);
             setLoading(false);
+        }
+    };
+
+    const handleImport = async (e) => {
+        e.preventDefault();
+        if (!importFile || !selectedDay) return;
+
+        setImporting(true);
+        const formData = new FormData();
+        formData.append('file', importFile);
+        formData.append('dayId', selectedDay.id);
+
+        try {
+            const res = await axios.post('/api/attendance/import', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            alert(res.data.message);
+            if (res.data.errors && res.data.errors.length > 0) {
+                alert('Errors:\n' + res.data.errors.join('\n'));
+            }
+            selectDay(selectedDay); // Refresh records
+            setIsImportModalOpen(false);
+            setImportFile(null);
+        } catch (err) {
+            console.error(err);
+            alert('Import failed: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setImporting(false);
         }
     };
 
@@ -180,11 +213,19 @@ const Attendance = () => {
                                     <h2 className="text-2xl font-bold text-gray-800">{selectedDay.title}</h2>
                                     <p className="text-gray-600 mt-1">{selectedDay.description || 'No description'}</p>
                                 </div>
-                                <div className="flex flex-wrap gap-2 mt-2 md:mt-0 text-sm">
-                                    <div className="flex items-center text-green-700 bg-green-50 px-2 py-1 rounded"><CheckCircle size={16} className="mr-1"/> Present: {stats.present || 0}</div>
-                                    <div className="flex items-center text-red-700 bg-red-50 px-2 py-1 rounded"><XCircle size={16} className="mr-1"/> Absent: {stats.absent || 0}</div>
-                                    <div className="flex items-center text-yellow-700 bg-yellow-50 px-2 py-1 rounded"><Clock size={16} className="mr-1"/> Late: {stats.late || 0}</div>
-                                    <div className="flex items-center text-blue-700 bg-blue-50 px-2 py-1 rounded"><AlertTriangle size={16} className="mr-1"/> Excused: {stats.excused || 0}</div>
+                                <div className="flex flex-col items-end gap-2 mt-2 md:mt-0">
+                                    <button 
+                                        onClick={() => setIsImportModalOpen(true)}
+                                        className="flex items-center text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
+                                    >
+                                        <Upload size={16} className="mr-2" /> Import Attendance
+                                    </button>
+                                    <div className="flex flex-wrap gap-2 text-sm">
+                                        <div className="flex items-center text-green-700 bg-green-50 px-2 py-1 rounded"><CheckCircle size={16} className="mr-1"/> Present: {stats.present || 0}</div>
+                                        <div className="flex items-center text-red-700 bg-red-50 px-2 py-1 rounded"><XCircle size={16} className="mr-1"/> Absent: {stats.absent || 0}</div>
+                                        <div className="flex items-center text-yellow-700 bg-yellow-50 px-2 py-1 rounded"><Clock size={16} className="mr-1"/> Late: {stats.late || 0}</div>
+                                        <div className="flex items-center text-blue-700 bg-blue-50 px-2 py-1 rounded"><AlertTriangle size={16} className="mr-1"/> Excused: {stats.excused || 0}</div>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -324,6 +365,68 @@ const Attendance = () => {
                                     className="flex-1 py-2 bg-green-700 text-white rounded hover:bg-green-800"
                                 >
                                     Create
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {/* Import Modal */}
+            {isImportModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                        <h3 className="text-xl font-bold mb-4">Import Attendance Records</h3>
+                        <div className="text-sm text-gray-600 mb-4 space-y-2">
+                            <p>Upload a file containing attendance data.</p>
+                            <p><b>Supported Formats:</b> CSV, Excel, PDF, Word, Image (.png, .jpg).</p>
+                            <div>
+                                <b>Matching Logic:</b> The system matches cadets by:
+                                <ul className="list-disc pl-5 mt-1">
+                                    <li><b>Student ID</b> (Highest Priority)</li>
+                                    <li><b>Email Address</b></li>
+                                    <li><b>Student Name</b> (First & Last Name)</li>
+                                </ul>
+                            </div>
+                            <p className="text-xs italic bg-gray-50 p-2 rounded">
+                                For PDF/Word/Image, ensure lines contain identifiable info (ID, Email, or Name) and a status (Present, Absent, Late, Excused).
+                                <br/>
+                                <span className="text-blue-600 font-semibold">Note:</span> Image processing (OCR) may take a few seconds. Ensure the image text is clear.
+                            </p>
+                        </div>
+                        <form onSubmit={handleImport} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Select File</label>
+                                <input 
+                                    type="file" 
+                                    accept=".csv, .xlsx, .xls, .pdf, .docx, .doc, .png, .jpg, .jpeg"
+                                    required
+                                    className="w-full border p-2 rounded"
+                                    onChange={e => setImportFile(e.target.files[0])}
+                                />
+                            </div>
+                            
+                            <div className="flex space-x-3 pt-4">
+                                <button 
+                                    type="button"
+                                    onClick={() => { setIsImportModalOpen(false); setImportFile(null); }}
+                                    className="flex-1 py-2 border rounded hover:bg-gray-50"
+                                    disabled={importing}
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit"
+                                    className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 flex justify-center items-center"
+                                    disabled={importing}
+                                >
+                                    {importing ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                            Importing...
+                                        </>
+                                    ) : (
+                                        'Upload & Import'
+                                    )}
                                 </button>
                             </div>
                         </form>
