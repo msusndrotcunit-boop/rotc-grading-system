@@ -2,6 +2,12 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
+const COLORS = {
+  Passed: '#22c55e', // Green
+  Failed: '#ef4444', // Red
+  Incomplete: '#f59e0b' // Amber
+};
+
 const Dashboard = () => {
     const [stats, setStats] = useState({ totalCadets: 0, totalActivities: 0 });
     const [analytics, setAnalytics] = useState({ attendance: [], grades: [] });

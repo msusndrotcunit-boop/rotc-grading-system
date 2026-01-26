@@ -177,6 +177,49 @@ const Cadets = () => {
         }
     };
 
+    const handleImport = async (e) => {
+        e.preventDefault();
+        if (!importFile) return;
+
+        setImporting(true);
+        const formData = new FormData();
+        formData.append('file', importFile);
+
+        try {
+            const res = await axios.post('/api/admin/import-cadets', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            alert(res.data.message || 'Import successful!');
+            setIsImportModalOpen(false);
+            fetchCadets();
+        } catch (err) {
+            console.error(err);
+            alert('Import failed: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    const handleAddSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            await axios.post('/api/admin/cadets', addForm);
+            alert('Cadet added successfully');
+            setIsAddModalOpen(false);
+            fetchCadets();
+            setAddForm({
+                rank: '', firstName: '', middleName: '', lastName: '', suffixName: '',
+                studentId: '', email: '', contactNumber: '', address: '',
+                course: '', yearLevel: '', schoolYear: '',
+                battalion: '', company: '', platoon: '',
+                cadetCourse: '', semester: '', status: 'Ongoing'
+            });
+        } catch (err) {
+            console.error(err);
+            alert('Failed to add cadet: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     if (loading) return <div className="text-center p-10">Loading...</div>;
 
     return (
@@ -403,8 +446,9 @@ const Cadets = () => {
                             <p>Upload the official list of cadets from ROTCMIS.</p>
                             <p><b>Supported Format:</b> Excel (.xlsx, .xls) or CSV</p>
                             <p className="text-xs italic text-gray-500">
-                                This will automatically create user accounts for new cadets and update existing information. 
-                                Cadets can login using their Student ID or Email.
+                                This will automatically create user accounts for new cadets.
+                                <br/>
+                                <b>Note:</b> If the file contains a "Username" column, it will be used for login. Otherwise, the Student ID will be used as the username.
                             </p>
                         </div>
                         <form onSubmit={handleImport} className="space-y-4">

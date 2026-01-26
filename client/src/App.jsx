@@ -64,6 +64,7 @@ function App() {
           </Routes>
         </Suspense>
       </AuthProvider>
+      </ErrorBoundary>
     </Router>
   );
 }

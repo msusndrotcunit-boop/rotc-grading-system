@@ -93,7 +93,9 @@ const AdminLayout = () => {
                     </h1>
                 </header>
                 <main className="flex-1 overflow-auto p-4 md:p-6">
-                    <Outlet />
+                    <Suspense fallback={<div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-700"></div></div>}>
+                        <Outlet />
+                    </Suspense>
                 </main>
             </div>
         </div>
