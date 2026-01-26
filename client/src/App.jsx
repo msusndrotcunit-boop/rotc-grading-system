@@ -13,7 +13,6 @@ import AdminCadets from './pages/admin/Cadets';
 import AdminGrading from './pages/admin/Grading';
 import AdminAttendance from './pages/admin/Attendance';
 import AdminActivities from './pages/admin/Activities';
-import AdminApprovals from './pages/admin/Approvals';
 import AdminProfile from './pages/admin/Profile';
 
 // Cadet Pages
@@ -38,7 +37,6 @@ function App() {
               <Route path="grading" element={<AdminGrading />} />
               <Route path="attendance" element={<AdminAttendance />} />
               <Route path="activities" element={<AdminActivities />} />
-              <Route path="approvals" element={<AdminApprovals />} />
               <Route path="profile" element={<AdminProfile />} />
               <Route index element={<Navigate to="dashboard" replace />} />
             </Route>
