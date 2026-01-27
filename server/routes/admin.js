@@ -266,24 +266,47 @@ const getDirectDownloadUrl = (url) => {
              return `${url}${separator}dl=1`;
         }
 
-        // OneDrive Personal: Replace /embed with /download
-        if (urlObj.hostname.includes('onedrive.live.com')) {
+        // OneDrive / SharePoint / Office Online
+        if (urlObj.hostname.includes('onedrive.live.com') || 
+            urlObj.hostname.includes('sharepoint.com') || 
+            urlObj.hostname.includes('1drv.ms')) {
+            
+            // Case 1: /embed -> /download
             if (url.includes('/embed')) {
                 return url.replace('/embed', '/download');
             }
-            // Fallback: append download=1 if not present
+            
+            // Case 2: /view.aspx -> /download (Personal)
+            if (url.includes('/view.aspx')) {
+                return url.replace('/view.aspx', '/download');
+            }
+
+            // Case 3: /redir -> /download (Personal)
+            if (url.includes('/redir')) {
+                return url.replace('/redir', '/download');
+            }
+            
+            // Case 4: Doc.aspx (Office Online / SharePoint)
+            // e.g. .../Doc.aspx?sourcedoc=...&action=default
+            if (url.includes('Doc.aspx')) {
+                // If action param exists, replace it
+                if (url.includes('action=')) {
+                    return url.replace(/action=[^&]+/, 'action=download');
+                } else {
+                    // Append action=download
+                    const separator = url.includes('?') ? '&' : '?';
+                    return `${url}${separator}action=download`;
+                }
+            }
+
+            // Case 5: Generic fallback (append download=1)
+            // This works for many SharePoint sharing links like /:x:/s/...
             if (!url.includes('download=1')) {
                  const separator = url.includes('?') ? '&' : '?';
                  return `${url}${separator}download=1`;
             }
         }
 
-        // SharePoint / Business / 1drv.ms: Append download=1
-        if (urlObj.hostname.includes('sharepoint.com') || urlObj.hostname.includes('1drv.ms')) {
-            if (url.includes('download=1')) return url;
-            const separator = url.includes('?') ? '&' : '?';
-            return `${url}${separator}download=1`;
-        }
         return url;
     } catch (e) {
         return url;
