@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Pencil, Trash2, X, FileDown, Upload, Plus } from 'lucide-react';
+import { Pencil, Trash2, X, FileDown, Upload, Plus, RefreshCw } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { cacheData, getCachedData } from '../../utils/db';
@@ -17,6 +17,8 @@ const Cadets = () => {
     const [importFile, setImportFile] = useState(null);
     const [importUrl, setImportUrl] = useState('');
     const [importing, setImporting] = useState(false);
+    const [linkedUrl, setLinkedUrl] = useState(null);
+    const [syncing, setSyncing] = useState(false);
 
     // Form States
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -42,7 +44,32 @@ const Cadets = () => {
 
     useEffect(() => {
         fetchCadets();
+        fetchSettings();
     }, []);
+
+    const fetchSettings = async () => {
+        try {
+            const res = await axios.get('/api/admin/settings/cadet-source');
+            setLinkedUrl(res.data.url);
+        } catch (err) {
+            console.error("Failed to fetch settings", err);
+        }
+    };
+
+    const handleSync = async () => {
+        if (!linkedUrl) return;
+        setSyncing(true);
+        try {
+            const res = await axios.post('/api/admin/sync-cadets');
+            alert(res.data.message);
+            fetchCadets();
+        } catch (err) {
+            console.error("Sync failed", err);
+            alert(err.response?.data?.message || 'Sync failed');
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     const fetchCadets = async () => {
         try {
@@ -208,6 +235,7 @@ const Cadets = () => {
             setImportFile(null);
             setImportUrl('');
             fetchCadets();
+            fetchSettings();
         } catch (err) {
             console.error(err);
             const status = err.response?.status;
@@ -251,6 +279,17 @@ const Cadets = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h2 className="text-2xl font-bold">Cadet Management</h2>
                 <div className="flex space-x-2 w-full md:w-auto">
+                    {linkedUrl && (
+                        <button 
+                            onClick={handleSync}
+                            disabled={syncing}
+                            className={`flex-1 md:flex-none bg-indigo-600 text-white px-4 py-2 rounded flex items-center justify-center space-x-2 hover:bg-indigo-700 ${syncing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title={`Synced with: ${linkedUrl}`}
+                        >
+                            <RefreshCw size={18} className={syncing ? 'animate-spin' : ''} />
+                            <span>{syncing ? 'Syncing...' : 'Sync'}</span>
+                        </button>
+                    )}
                     <button 
                         onClick={() => setIsImportModalOpen(true)}
                         className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded flex items-center justify-center space-x-2 hover:bg-blue-700"

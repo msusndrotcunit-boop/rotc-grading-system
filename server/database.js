@@ -178,6 +178,11 @@ function initPgDb() {
             file_url TEXT,
             status TEXT DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS system_settings (
+            id SERIAL PRIMARY KEY,
+            key TEXT UNIQUE NOT NULL,
+            value TEXT
         )`
     ];
 
@@ -299,6 +304,13 @@ function initSqliteDb() {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(cadet_id) REFERENCES cadets(id) ON DELETE CASCADE,
             FOREIGN KEY(training_day_id) REFERENCES training_days(id) ON DELETE CASCADE
+        )`);
+
+        // System Settings Table
+        db.run(`CREATE TABLE IF NOT EXISTS system_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT UNIQUE NOT NULL,
+            value TEXT
         )`);
 
         seedAdmin();

@@ -341,46 +341,59 @@ router.post('/import-cadets', upload.single('file'), async (req, res) => {
     }
 });
 
+const processUrlImport = async (url) => {
+    const downloadUrl = getDirectDownloadUrl(url);
+    console.log(`Downloading from: ${downloadUrl}`);
+    
+    const response = await axios.get(downloadUrl, { 
+        responseType: 'arraybuffer',
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+    });
+    
+    const buffer = Buffer.from(response.data);
+    const contentType = response.headers['content-type'];
+    
+    let data = [];
+    
+    if (contentType && contentType.includes('pdf')) {
+         try {
+            data = await parsePdfBuffer(buffer);
+        } catch (err) {
+             throw new Error('Failed to parse PDF from URL: ' + err.message);
+        }
+    } else {
+        // Assume Excel
+        try {
+            const workbook = xlsx.read(buffer, { type: 'buffer' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            data = xlsx.utils.sheet_to_json(sheet);
+        } catch (err) {
+             throw new Error('Failed to parse Excel file from URL. Ensure the link is a direct download.');
+        }
+    }
+    
+    return await processCadetData(data);
+};
+
 router.post('/import-cadets-url', async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ message: 'No URL provided' });
 
     try {
-        const downloadUrl = getDirectDownloadUrl(url);
-        console.log(`Downloading from: ${downloadUrl}`);
-        
-        const response = await axios.get(downloadUrl, { 
-            responseType: 'arraybuffer',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        const result = await processUrlImport(url);
+
+        // Save URL to Settings
+        db.get("SELECT id FROM system_settings WHERE key = 'cadet_list_source_url'", [], (err, row) => {
+            if (row) {
+                db.run("UPDATE system_settings SET value = ? WHERE key = 'cadet_list_source_url'", [url]);
+            } else {
+                db.run("INSERT INTO system_settings (key, value) VALUES ('cadet_list_source_url', ?)", [url]);
             }
         });
-        
-        const buffer = Buffer.from(response.data);
-        const contentType = response.headers['content-type'];
-        
-        let data = [];
-        
-        if (contentType && contentType.includes('pdf')) {
-             try {
-                data = await parsePdfBuffer(buffer);
-            } catch (err) {
-                 return res.status(400).json({ message: 'Failed to parse PDF from URL: ' + err.message });
-            }
-        } else {
-            // Assume Excel
-            try {
-                const workbook = xlsx.read(buffer, { type: 'buffer' });
-                const sheetName = workbook.SheetNames[0];
-                const sheet = workbook.Sheets[sheetName];
-                data = xlsx.utils.sheet_to_json(sheet);
-            } catch (err) {
-                 return res.status(400).json({ message: 'Failed to parse Excel file from URL. Ensure the link is a direct download.' });
-            }
-        }
-        
-        const result = await processCadetData(data);
-        
+
         res.json({ 
             message: `Import complete. Success: ${result.successCount}, Failed: ${result.failCount}`,
             errors: result.errors.slice(0, 10)
@@ -390,6 +403,31 @@ router.post('/import-cadets-url', async (req, res) => {
         console.error('URL Import error:', err);
         res.status(500).json({ message: 'Failed to fetch or process file from URL: ' + err.message });
     }
+});
+
+router.post('/sync-cadets', async (req, res) => {
+    db.get("SELECT value FROM system_settings WHERE key = 'cadet_list_source_url'", [], async (err, row) => {
+        if (err) return res.status(500).json({ message: err.message });
+        if (!row || !row.value) return res.status(404).json({ message: 'No linked source file found. Please import via URL first.' });
+        
+        try {
+            const result = await processUrlImport(row.value);
+            res.json({ 
+                message: `Sync complete. Success: ${result.successCount}, Failed: ${result.failCount}`,
+                errors: result.errors.slice(0, 10)
+            });
+        } catch (err) {
+             console.error('Sync error:', err);
+             res.status(500).json({ message: 'Sync failed: ' + err.message });
+        }
+    });
+});
+
+router.get('/settings/cadet-source', (req, res) => {
+    db.get("SELECT value FROM system_settings WHERE key = 'cadet_list_source_url'", [], (err, row) => {
+        if (err) return res.status(500).json({ message: err.message });
+        res.json({ url: row ? row.value : null });
+    });
 });
 
 // Helper: Transmuted Grade Logic
