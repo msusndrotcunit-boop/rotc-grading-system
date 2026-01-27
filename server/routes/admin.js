@@ -516,7 +516,7 @@ router.post('/cadets', async (req, res) => {
 // Get All Cadets (with computed grades) - ONLY APPROVED
 router.get('/cadets', (req, res) => {
     const sql = `
-        SELECT c.*, 
+        SELECT c.*, u.username,
                g.attendance_present, g.merit_points, g.demerit_points, 
                g.prelim_score, g.midterm_score, g.final_score, g.status as grade_status
         FROM cadets c
