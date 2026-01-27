@@ -25,6 +25,9 @@ const Grading = () => {
     const [ledgerLogs, setLedgerLogs] = useState([]);
     const [ledgerForm, setLedgerForm] = useState({ type: 'merit', points: 0, reason: '' });
 
+    // Attendance State
+    const [attendanceRecords, setAttendanceRecords] = useState([]);
+
     // Proficiency State
     const [proficiencyForm, setProficiencyForm] = useState({
         prelimScore: 0,
@@ -95,6 +98,16 @@ const Grading = () => {
             setLedgerLogs(res.data);
         } catch (err) {
             console.error("Error fetching logs", err);
+        }
+    };
+
+    // --- Attendance Logic ---
+    const fetchAttendanceRecords = async (cadetId) => {
+        try {
+            const res = await axios.get(`/api/attendance/cadet/${cadetId}`);
+            setAttendanceRecords(res.data);
+        } catch (err) {
+            console.error("Error fetching attendance records", err);
         }
     };
 

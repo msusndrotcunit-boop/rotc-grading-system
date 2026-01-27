@@ -82,6 +82,29 @@ router.get('/records/:dayId', authenticateToken, isAdmin, (req, res) => {
     });
 });
 
+// Get attendance records for a specific cadet
+router.get('/cadet/:cadetId', authenticateToken, isAdmin, (req, res) => {
+    const cadetId = req.params.cadetId;
+    const sql = `
+        SELECT 
+            ar.id,
+            ar.status,
+            ar.remarks,
+            td.date,
+            td.title,
+            td.description
+        FROM attendance_records ar
+        JOIN training_days td ON ar.training_day_id = td.id
+        WHERE ar.cadet_id = ?
+        ORDER BY td.date DESC
+    `;
+    
+    db.all(sql, [cadetId], (err, rows) => {
+        if (err) return res.status(500).json({ message: err.message });
+        res.json(rows);
+    });
+});
+
 // Mark attendance (Upsert)
 router.post('/mark', authenticateToken, isAdmin, (req, res) => {
     const { dayId, cadetId, status, remarks } = req.body;

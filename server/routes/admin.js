@@ -606,11 +606,12 @@ router.post('/cadets/delete', (req, res) => {
 
 // Update Grades for a Cadet
 router.put('/grades/:cadetId', (req, res) => {
-    const { attendancePresent, meritPoints, demeritPoints, prelimScore, midtermScore, finalScore, status } = req.body;
+    const { meritPoints, demeritPoints, prelimScore, midtermScore, finalScore, status } = req.body;
     const cadetId = req.params.cadetId;
 
+    // Note: attendance_present is excluded from manual update to prevent overwriting 
+    // the value synchronized from the Attendance module.
     db.run(`UPDATE grades SET 
-            attendance_present = ?, 
             merit_points = ?, 
             demerit_points = ?, 
             prelim_score = ?, 
@@ -618,7 +619,7 @@ router.put('/grades/:cadetId', (req, res) => {
             final_score = ?,
             status = ?
             WHERE cadet_id = ?`,
-        [attendancePresent, meritPoints, demeritPoints, prelimScore, midtermScore, finalScore, status || 'active', cadetId],
+        [meritPoints, demeritPoints, prelimScore, midtermScore, finalScore, status || 'active', cadetId],
         function(err) {
             if (err) return res.status(500).json({ message: err.message });
             
