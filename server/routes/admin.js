@@ -252,12 +252,15 @@ router.use(isAdmin);
 const getDirectDownloadUrl = (url) => {
     try {
         const urlObj = new URL(url);
-        if (urlObj.hostname.includes('sharepoint.com') || urlObj.hostname.includes('1drv.ms') || urlObj.hostname.includes('onedrive.live.com')) {
-            if (url.includes('?')) {
-                return url + '&download=1';
-            } else {
-                return url + '?download=1';
-            }
+        // OneDrive Personal: Replace /embed with /download
+        if (urlObj.hostname.includes('onedrive.live.com')) {
+            return url.replace('/embed', '/download');
+        }
+        // SharePoint / Business / 1drv.ms: Append download=1
+        if (urlObj.hostname.includes('sharepoint.com') || urlObj.hostname.includes('1drv.ms')) {
+            if (url.includes('download=1')) return url;
+            const separator = url.includes('?') ? '&' : '?';
+            return `${url}${separator}download=1`;
         }
         return url;
     } catch (e) {
@@ -347,7 +350,10 @@ router.post('/import-cadets-url', async (req, res) => {
         console.log(`Downloading from: ${downloadUrl}`);
         
         const response = await axios.get(downloadUrl, { 
-            responseType: 'arraybuffer' 
+            responseType: 'arraybuffer',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
         });
         
         const buffer = Buffer.from(response.data);
