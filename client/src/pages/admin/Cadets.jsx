@@ -189,12 +189,28 @@ const Cadets = () => {
             const res = await axios.post('/api/admin/import-cadets', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
-            alert(res.data.message || 'Import successful!');
+            
+            let message = res.data.message || 'Import successful!';
+            
+            // Check for errors in the response
+            if (res.data.errors && res.data.errors.length > 0) {
+                message += '\n\nErrors encountered:\n' + res.data.errors.join('\n');
+            }
+            
+            alert(message);
             setIsImportModalOpen(false);
             fetchCadets();
         } catch (err) {
             console.error(err);
-            alert('Import failed: ' + (err.response?.data?.message || err.message));
+            const status = err.response?.status;
+            const isAuthError = status === 401 || status === 403 || err.message.includes('401') || err.message.includes('403');
+
+            if (isAuthError) {
+                alert('Session expired. Please log in again.');
+                window.location.href = '/login';
+            } else {
+                alert('Import failed: ' + (err.response?.data?.message || err.message));
+            }
         } finally {
             setImporting(false);
         }
@@ -421,8 +437,8 @@ const Cadets = () => {
                                 </div>
                                 <div className="text-xs text-gray-500 mt-2 space-y-1">
                                     <p><strong>Supported formats:</strong> .xlsx, .xls, .csv, .pdf</p>
-                                    <p><strong>Excel/CSV:</strong> Required columns: "Student ID", "First Name", "Last Name". Optional: "Username" (for login), "Email".</p>
-                                    <p><strong>PDF:</strong> Attempts to extract Student ID and Email automatically. Student ID will be used as the Username.</p>
+                                    <p><strong>Excel/CSV:</strong> Required: "First Name", "Last Name". Optional: "Student ID", "Username", "Email".</p>
+                                    <p><strong>Note:</strong> If Student ID is missing, it will be auto-generated from the name. Login uses Username (defaults to Student ID) or Email.</p>
                                 </div>
                             </div>
                             

@@ -105,13 +105,16 @@ router.put('/profile', upload.single('profilePic'), (req, res) => {
 
     // Only allow updating personal contact info and profile picture
     const { 
+        firstName, middleName, lastName, suffixName,
         email, contactNumber, address 
     } = req.body;
 
     let sql = `UPDATE cadets SET 
+        first_name=?, middle_name=?, last_name=?, suffix_name=?,
         email=?, contact_number=?, address=?`;
     
     const params = [
+        firstName, middleName, lastName, suffixName,
         email, contactNumber, address
     ];
 

@@ -1,7 +1,7 @@
 import React, { useState, Suspense } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, User, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, User, LogOut, Menu, X, Info } from 'lucide-react';
 import clsx from 'clsx';
 
 const CadetLayout = () => {
@@ -60,6 +60,17 @@ const CadetLayout = () => {
                     >
                         <User size={20} />
                         <span>My Profile</span>
+                    </Link>
+                    <Link
+                        to="/cadet/about"
+                        onClick={() => setIsSidebarOpen(false)}
+                        className={clsx(
+                            "flex items-center space-x-3 p-3 rounded transition",
+                            location.pathname === '/cadet/about' ? "bg-green-700 text-white" : "text-green-200 hover:bg-green-800 hover:text-white"
+                        )}
+                    >
+                        <Info size={20} />
+                        <span>About</span>
                     </Link>
                 </nav>
                 <div className="p-4 border-t border-green-800">

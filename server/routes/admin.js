@@ -231,37 +231,102 @@ router.post('/import-cadets', upload.single('file'), async (req, res) => {
             });
         };
 
+        const findColumnValue = (row, possibleNames) => {
+            const keys = Object.keys(row);
+            for (const key of keys) {
+                const normalizedKey = key.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                for (const name of possibleNames) {
+                    const normalizedName = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                    if (normalizedKey === normalizedName) return row[key];
+                }
+            }
+            return undefined;
+        };
+
         for (const row of data) {
             // Mapping Logic: Expect headers like "Student ID", "Last Name", etc.
-            const studentId = row['Student ID'] || row['student_id'] || row['ID'];
+            // Use fuzzy matching for flexibility
+            let studentId = findColumnValue(row, ['Student ID', 'student_id', 'ID', 'StudentId']);
+            
+            // Check for Custom Username early to use as fallback
+            const customUsername = findColumnValue(row, ['Username', 'username', 'User Name']);
+            const email = findColumnValue(row, ['Email', 'email', 'E-mail']);
+
+            // Fallback: If Student ID is missing but we have a Custom Username, use that as the Student ID
+            // If neither, try to use Email as the ID
+            // If still neither, try to generate from Name (Last Name + First Name)
+            if (!studentId) {
+                if (customUsername) {
+                    studentId = customUsername;
+                } else if (email) {
+                    studentId = email;
+                } else {
+                    const lName = findColumnValue(row, ['Last Name', 'last_name', 'Surname', 'LName']);
+                    const fName = findColumnValue(row, ['First Name', 'first_name', 'FName']);
+                    
+                    if (lName && fName) {
+                        const cleanLast = lName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                        const cleanFirst = fName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                        // Generate ID: lastname.firstname
+                        studentId = `${cleanLast}.${cleanFirst}`;
+                    }
+                }
+            }
             
             if (!studentId) {
                 failCount++;
-                errors.push("Missing Student ID");
+                const availableKeys = Object.keys(row).join(', ');
+                errors.push(`Missing Student ID, Username, Email, or Name. Found columns: ${availableKeys}`);
                 continue;
+            }
+
+            // Robust Name Generation:
+            // If First/Last Name are missing, derive them from the Student ID (which is likely the Username or Email)
+            let lastName = findColumnValue(row, ['Last Name', 'last_name', 'Surname', 'LName']);
+            let firstName = findColumnValue(row, ['First Name', 'first_name', 'FName']);
+
+            if (!firstName || !lastName) {
+                // Try to parse from studentId/Username (e.g. "john.doe", "doe, john", "john_doe")
+                // Remove email domain if present
+                const baseStr = studentId.split('@')[0]; 
+                
+                const parts = baseStr.split(/[._, ]+/).filter(Boolean);
+                if (parts.length >= 2) {
+                    // Assume First Last or Last First? 
+                    // Let's assume the ID is typically "firstname.lastname" or "lastname.firstname"
+                    // We'll just assign them sequentially.
+                    if (!firstName) firstName = parts[0] || 'Unknown';
+                    if (!lastName) lastName = parts.slice(1).join(' ') || 'Cadet';
+                } else {
+                    if (!firstName) firstName = baseStr || 'Unknown';
+                    if (!lastName) lastName = 'Cadet';
+                }
+                
+                // Capitalize
+                const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+                firstName = firstName.split(' ').map(capitalize).join(' ');
+                lastName = lastName.split(' ').map(capitalize).join(' ');
             }
 
             const cadetData = {
                 student_id: studentId,
-                last_name: row['Last Name'] || row['last_name'] || row['Surname'] || '',
-                first_name: row['First Name'] || row['first_name'] || '',
-                middle_name: row['Middle Name'] || row['middle_name'] || '',
-                suffix_name: row['Suffix'] || row['suffix_name'] || '',
-                rank: row['Rank'] || row['rank'] || '',
-                email: row['Email'] || row['email'] || '',
-                contact_number: row['Contact Number'] || row['contact_number'] || '',
-                address: row['Address'] || row['address'] || '',
-                course: row['Course'] || row['course'] || '',
-                year_level: row['Year Level'] || row['year_level'] || '',
-                school_year: row['School Year'] || row['school_year'] || '',
-                battalion: row['Battalion'] || row['battalion'] || '',
-                company: row['Company'] || row['company'] || '',
-                platoon: row['Platoon'] || row['platoon'] || '',
-                cadet_course: row['Cadet Course'] || row['cadet_course'] || '', // MS1, MS2...
-                semester: row['Semester'] || row['semester'] || ''
+                last_name: lastName,
+                first_name: firstName,
+                middle_name: findColumnValue(row, ['Middle Name', 'middle_name', 'MName']) || '',
+                suffix_name: findColumnValue(row, ['Suffix', 'suffix_name']) || '',
+                rank: findColumnValue(row, ['Rank', 'rank']) || 'Cdt', // Default rank
+                email: email || '',
+                contact_number: findColumnValue(row, ['Contact Number', 'contact_number', 'Mobile', 'Phone']) || '',
+                address: findColumnValue(row, ['Address', 'address']) || '',
+                course: findColumnValue(row, ['Course', 'course']) || '',
+                year_level: findColumnValue(row, ['Year Level', 'year_level', 'Year']) || '',
+                school_year: findColumnValue(row, ['School Year', 'school_year', 'SY']) || '',
+                battalion: findColumnValue(row, ['Battalion', 'battalion']) || '',
+                company: findColumnValue(row, ['Company', 'company']) || '',
+                platoon: findColumnValue(row, ['Platoon', 'platoon']) || '',
+                cadet_course: findColumnValue(row, ['Cadet Course', 'cadet_course']) || '', 
+                semester: findColumnValue(row, ['Semester', 'semester']) || ''
             };
-
-            const customUsername = row['Username'] || row['username'] || '';
 
             try {
                 let cadetId;

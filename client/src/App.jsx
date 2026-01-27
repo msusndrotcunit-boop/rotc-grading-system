@@ -20,6 +20,7 @@ const AdminProfile = lazy(() => import('./pages/admin/Profile'));
 const CadetLayout = lazy(() => import('./layouts/CadetLayout'));
 const CadetDashboard = lazy(() => import('./pages/cadet/Dashboard'));
 const CadetProfile = lazy(() => import('./pages/cadet/Profile'));
+const CadetAbout = lazy(() => import('./pages/cadet/About'));
 
 // Loading Fallback
 const LoadingSpinner = () => (
@@ -57,6 +58,7 @@ function App() {
               <Route path="/cadet" element={<CadetLayout />}>
                 <Route path="dashboard" element={<CadetDashboard />} />
                 <Route path="profile" element={<CadetProfile />} />
+                <Route path="about" element={<CadetAbout />} />
                 <Route index element={<Navigate to="dashboard" replace />} />
               </Route>
             </Route>
