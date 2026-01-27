@@ -108,3 +108,10 @@ export const COURSE_OPTIONS = [
     "Bachelor of Science in Fisheries",
     "Other"
 ];
+
+export const CADET_COURSE_OPTIONS = [
+    "MS 1",
+    "MS 2",
+    "MS 3",
+    "MS 4"
+];

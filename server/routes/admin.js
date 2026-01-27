@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const xlsx = require('xlsx');
 const pdfParse = require('pdf-parse');
+const axios = require('axios');
 const { sendEmail } = require('../utils/emailService');
 
 const router = express.Router();
@@ -16,10 +17,293 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
 
+// --- Import Helpers ---
+
+const getCadetByStudentId = (studentId) => {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT * FROM cadets WHERE student_id = ?', [studentId], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+};
+
+const getUserByCadetId = (cadetId) => {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT * FROM users WHERE cadet_id = ?', [cadetId], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+};
+
+const insertCadet = (cadet) => {
+    return new Promise((resolve, reject) => {
+        const sql = `INSERT INTO cadets (
+            rank, first_name, middle_name, last_name, suffix_name, 
+            student_id, email, contact_number, address, 
+            course, year_level, school_year, 
+            battalion, company, platoon, 
+            cadet_course, semester, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+        const params = [
+            cadet.rank || '', cadet.first_name || '', cadet.middle_name || '', cadet.last_name || '', cadet.suffix_name || '',
+            cadet.student_id, cadet.email || '', cadet.contact_number || '', cadet.address || '',
+            cadet.course || '', cadet.year_level || '', cadet.school_year || '',
+            cadet.battalion || '', cadet.company || '', cadet.platoon || '',
+            cadet.cadet_course || '', cadet.semester || '', 'Ongoing'
+        ];
+
+        db.run(sql, params, function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+        });
+    });
+};
+
+const updateCadet = (id, cadet) => {
+    return new Promise((resolve, reject) => {
+        const sql = `UPDATE cadets SET 
+            rank = ?, first_name = ?, middle_name = ?, last_name = ?, suffix_name = ?, 
+            email = ?, contact_number = ?, address = ?, 
+            course = ?, year_level = ?, school_year = ?, 
+            battalion = ?, company = ?, platoon = ?, 
+            cadet_course = ?, semester = ?
+            WHERE id = ?`;
+
+        const params = [
+            cadet.rank || '', cadet.first_name || '', cadet.middle_name || '', cadet.last_name || '', cadet.suffix_name || '',
+            cadet.email || '', cadet.contact_number || '', cadet.address || '',
+            cadet.course || '', cadet.year_level || '', cadet.school_year || '',
+            cadet.battalion || '', cadet.company || '', cadet.platoon || '',
+            cadet.cadet_course || '', cadet.semester || '',
+            id
+        ];
+
+        db.run(sql, params, (err) => {
+            if (err) reject(err);
+            else resolve();
+        });
+    });
+};
+
+const upsertUser = (cadetId, studentId, email, customUsername) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const existingUser = await getUserByCadetId(cadetId);
+            const username = customUsername || studentId;
+            
+            if (!existingUser) {
+                const dummyHash = '$2a$10$DUMMYPASSWORDHASHDO_NOT_USE_OR_YOU_WILL_BE_HACKED'; 
+                db.run(`INSERT INTO users (username, password, role, cadet_id, is_approved, email) VALUES (?, ?, ?, ?, ?, ?)`, 
+                    [username, dummyHash, 'cadet', cadetId, 1, email], 
+                    (err) => {
+                        if (err) {
+                            if (err.message.includes('UNIQUE constraint failed')) {
+                                console.warn(`Username ${username} already exists. Skipping user creation for ${studentId}.`);
+                                resolve();
+                            } else {
+                                reject(err);
+                            }
+                        }
+                        else {
+                            // Initialize Grades
+                            db.run(`INSERT INTO grades (cadet_id) VALUES (?)`, [cadetId], (err) => {
+                                if (err) console.error("Error initializing grades", err);
+                                resolve();
+                            });
+                        }
+                    }
+                );
+            } else {
+                let sql = `UPDATE users SET email = ?, is_approved = 1`;
+                const params = [email];
+                if (customUsername && customUsername !== existingUser.username) {
+                    sql += `, username = ?`;
+                    params.push(customUsername);
+                }
+                sql += ` WHERE id = ?`;
+                params.push(existingUser.id);
+
+                db.run(sql, params, (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            }
+        } catch (err) {
+            reject(err);
+        }
+    });
+};
+
+const findColumnValue = (row, possibleNames) => {
+    const keys = Object.keys(row);
+    for (const key of keys) {
+        const normalizedKey = key.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        for (const name of possibleNames) {
+            const normalizedName = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (normalizedKey === normalizedName) return row[key];
+        }
+    }
+    return undefined;
+};
+
+const processCadetData = async (data) => {
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
+
+    for (const row of data) {
+        let studentId = findColumnValue(row, ['Student ID', 'student_id', 'ID', 'StudentId']);
+        const customUsername = findColumnValue(row, ['Username', 'username', 'User Name']);
+        const email = findColumnValue(row, ['Email', 'email', 'E-mail']);
+
+        if (!studentId) {
+            if (customUsername) {
+                studentId = customUsername;
+            } else if (email) {
+                studentId = email;
+            } else {
+                const lName = findColumnValue(row, ['Last Name', 'last_name', 'Surname', 'LName']);
+                const fName = findColumnValue(row, ['First Name', 'first_name', 'FName']);
+                
+                if (lName && fName) {
+                    const cleanLast = lName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const cleanFirst = fName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                    studentId = `${cleanLast}.${cleanFirst}`;
+                }
+            }
+        }
+        
+        if (!studentId) {
+            failCount++;
+            const availableKeys = Object.keys(row).join(', ');
+            errors.push(`Missing Student ID, Username, Email, or Name. Found columns: ${availableKeys}`);
+            continue;
+        }
+
+        let lastName = findColumnValue(row, ['Last Name', 'last_name', 'Surname', 'LName']);
+        let firstName = findColumnValue(row, ['First Name', 'first_name', 'FName']);
+
+        if (!firstName || !lastName) {
+            const baseStr = studentId.split('@')[0]; 
+            const parts = baseStr.split(/[._, ]+/).filter(Boolean);
+            if (parts.length >= 2) {
+                if (!firstName) firstName = parts[0] || 'Unknown';
+                if (!lastName) lastName = parts.slice(1).join(' ') || 'Cadet';
+            } else {
+                if (!firstName) firstName = baseStr || 'Unknown';
+                if (!lastName) lastName = 'Cadet';
+            }
+            
+            const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+            firstName = firstName.split(' ').map(capitalize).join(' ');
+            lastName = lastName.split(' ').map(capitalize).join(' ');
+        }
+
+        const cadetData = {
+            student_id: studentId,
+            last_name: lastName,
+            first_name: firstName,
+            middle_name: findColumnValue(row, ['Middle Name', 'middle_name', 'MName']) || '',
+            suffix_name: findColumnValue(row, ['Suffix', 'suffix_name']) || '',
+            rank: findColumnValue(row, ['Rank', 'rank']) || 'Cdt',
+            email: email || '',
+            contact_number: findColumnValue(row, ['Contact Number', 'contact_number', 'Mobile', 'Phone']) || '',
+            address: findColumnValue(row, ['Address', 'address']) || '',
+            course: findColumnValue(row, ['Course', 'course']) || '',
+            year_level: findColumnValue(row, ['Year Level', 'year_level', 'Year']) || '',
+            school_year: findColumnValue(row, ['School Year', 'school_year', 'SY']) || '',
+            battalion: findColumnValue(row, ['Battalion', 'battalion']) || '',
+            company: findColumnValue(row, ['Company', 'company']) || '',
+            platoon: findColumnValue(row, ['Platoon', 'platoon']) || '',
+            cadet_course: findColumnValue(row, ['Cadet Course', 'cadet_course']) || '', 
+            semester: findColumnValue(row, ['Semester', 'semester']) || ''
+        };
+
+        try {
+            let cadetId;
+            const existingCadet = await getCadetByStudentId(studentId);
+
+            if (existingCadet) {
+                cadetId = existingCadet.id;
+                await updateCadet(cadetId, cadetData);
+            } else {
+                cadetId = await insertCadet(cadetData);
+            }
+
+            await upsertUser(cadetId, studentId, cadetData.email, customUsername);
+            successCount++;
+        } catch (err) {
+            console.error(`Error processing ${studentId}:`, err);
+            failCount++;
+            errors.push(`${studentId}: ${err.message}`);
+        }
+    }
+    return { successCount, failCount, errors };
+};
+
 router.use(authenticateToken);
 router.use(isAdmin);
 
 // --- Import Official Cadet List ---
+
+const getDirectDownloadUrl = (url) => {
+    try {
+        const urlObj = new URL(url);
+        if (urlObj.hostname.includes('sharepoint.com') || urlObj.hostname.includes('1drv.ms') || urlObj.hostname.includes('onedrive.live.com')) {
+            if (url.includes('?')) {
+                return url + '&download=1';
+            } else {
+                return url + '?download=1';
+            }
+        }
+        return url;
+    } catch (e) {
+        return url;
+    }
+};
+
+const parsePdfBuffer = async (buffer) => {
+    const data = [];
+    const pdfData = await pdfParse(buffer);
+    const text = pdfData.text;
+    const lines = text.split('\n');
+    
+    lines.forEach(line => {
+        const idMatch = line.match(/\b\d{4}[-]?\d{3,}\b/);
+        if (idMatch) {
+            const studentId = idMatch[0];
+            const emailMatch = line.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+            const email = emailMatch ? emailMatch[0] : '';
+            let cleanLine = line.replace(studentId, '').replace(email, '').trim();
+            let lastName = cleanLine;
+            let firstName = '';
+            let middleName = '';
+            
+            if (cleanLine.includes(',')) {
+                const parts = cleanLine.split(',');
+                lastName = parts[0].trim();
+                const rest = parts.slice(1).join(' ').trim();
+                firstName = rest;
+            }
+            data.push({
+                'Student ID': studentId,
+                'Email': email,
+                'Last Name': lastName,
+                'First Name': firstName,
+                'Middle Name': middleName
+            });
+        }
+    });
+
+    if (data.length === 0) {
+        throw new Error("No cadet records detected in PDF.");
+    }
+
+    return data;
+};
 
 router.post('/import-cadets', upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
@@ -27,337 +311,78 @@ router.post('/import-cadets', upload.single('file'), async (req, res) => {
     try {
         let data = [];
         
-        // Check file type
         if (req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf')) {
             try {
-                const dataBuffer = req.file.buffer;
-                const pdfData = await pdfParse(dataBuffer);
-                const text = pdfData.text;
-                const lines = text.split('\n');
-                
-                lines.forEach(line => {
-                    // Heuristic extraction
-                    // Look for Student ID (Sequence of digits, possibly with dashes, e.g. 2023-0001 or 12345678)
-                    // We assume Student ID is the primary identifier.
-                    const idMatch = line.match(/\b\d{4}[-]?\d{3,}\b/);
-                    
-                    if (idMatch) {
-                        const studentId = idMatch[0];
-                        
-                        // Look for Email
-                        const emailMatch = line.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-                        const email = emailMatch ? emailMatch[0] : '';
-                        
-                        // Remove ID and Email to isolate Name
-                        let cleanLine = line.replace(studentId, '').replace(email, '').trim();
-                        
-                        // Attempt to extract Name (Last, First format preferred)
-                        let lastName = cleanLine;
-                        let firstName = '';
-                        let middleName = '';
-                        
-                        if (cleanLine.includes(',')) {
-                            const parts = cleanLine.split(',');
-                            lastName = parts[0].trim();
-                            const rest = parts.slice(1).join(' ').trim();
-                            // Split rest into First and Middle? 
-                            // Simple heuristic: Last word is middle name if > 1 word? No, risky.
-                            // Just put rest in First Name
-                            firstName = rest;
-                        } else {
-                            // If no comma, assume "First Middle Last" or "Last First"? 
-                            // Without comma, it's ambiguous. We'll put everything in Last Name to be safe, 
-                            // or try to split by space.
-                            // Let's assume standard "Last Name, First Name" is the ROTCMIS format. 
-                            // If not, users should verify.
-                        }
-
-                        data.push({
-                            'Student ID': studentId,
-                            'Email': email,
-                            'Last Name': lastName,
-                            'First Name': firstName,
-                            'Middle Name': middleName
-                        });
-                    }
-                });
-
-                if (data.length === 0) {
-                    throw new Error("No cadet records detected in PDF. Ensure the PDF contains text lines with Student IDs (e.g., 2023-1234).");
-                }
-
+                data = await parsePdfBuffer(req.file.buffer);
             } catch (err) {
                 console.error("PDF Parse Error", err);
                 return res.status(400).json({ message: 'Failed to parse PDF: ' + err.message });
             }
         } else {
-            // Excel/CSV Parsing
             const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
             data = xlsx.utils.sheet_to_json(sheet);
         }
 
-        let successCount = 0;
-        let failCount = 0;
-        const errors = [];
-
-        // DB Helpers (Promisified)
-        const getCadetByStudentId = (studentId) => {
-            return new Promise((resolve, reject) => {
-                db.get('SELECT * FROM cadets WHERE student_id = ?', [studentId], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                });
-            });
-        };
-
-        const getUserByCadetId = (cadetId) => {
-            return new Promise((resolve, reject) => {
-                db.get('SELECT * FROM users WHERE cadet_id = ?', [cadetId], (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                });
-            });
-        };
-
-        const insertCadet = (cadet) => {
-            return new Promise((resolve, reject) => {
-                const sql = `INSERT INTO cadets (
-                    rank, first_name, middle_name, last_name, suffix_name, 
-                    student_id, email, contact_number, address, 
-                    course, year_level, school_year, 
-                    battalion, company, platoon, 
-                    cadet_course, semester, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-                const params = [
-                    cadet.rank || '', cadet.first_name || '', cadet.middle_name || '', cadet.last_name || '', cadet.suffix_name || '',
-                    cadet.student_id, cadet.email || '', cadet.contact_number || '', cadet.address || '',
-                    cadet.course || '', cadet.year_level || '', cadet.school_year || '',
-                    cadet.battalion || '', cadet.company || '', cadet.platoon || '',
-                    cadet.cadet_course || '', cadet.semester || '', 'Ongoing'
-                ];
-
-                db.run(sql, params, function(err) {
-                    if (err) reject(err);
-                    else resolve(this.lastID);
-                });
-            });
-        };
-
-        const updateCadet = (id, cadet) => {
-            return new Promise((resolve, reject) => {
-                const sql = `UPDATE cadets SET 
-                    rank = ?, first_name = ?, middle_name = ?, last_name = ?, suffix_name = ?, 
-                    email = ?, contact_number = ?, address = ?, 
-                    course = ?, year_level = ?, school_year = ?, 
-                    battalion = ?, company = ?, platoon = ?, 
-                    cadet_course = ?, semester = ?
-                    WHERE id = ?`;
-
-                const params = [
-                    cadet.rank || '', cadet.first_name || '', cadet.middle_name || '', cadet.last_name || '', cadet.suffix_name || '',
-                    cadet.email || '', cadet.contact_number || '', cadet.address || '',
-                    cadet.course || '', cadet.year_level || '', cadet.school_year || '',
-                    cadet.battalion || '', cadet.company || '', cadet.platoon || '',
-                    cadet.cadet_course || '', cadet.semester || '',
-                    id
-                ];
-
-                db.run(sql, params, (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                });
-            });
-        };
-
-        const upsertUser = (cadetId, studentId, email, customUsername) => {
-            return new Promise(async (resolve, reject) => {
-                try {
-                    const existingUser = await getUserByCadetId(cadetId);
-                    // Use Custom Username if provided, else Student ID
-                    const username = customUsername || studentId;
-                    
-                    if (!existingUser) {
-                        // Create User
-                        // is_approved = 1 (Auto-approved since imported by admin)
-                        // password = dummy hash
-                        const dummyHash = '$2a$10$DUMMYPASSWORDHASHDO_NOT_USE_OR_YOU_WILL_BE_HACKED'; 
-
-                        db.run(`INSERT INTO users (username, password, role, cadet_id, is_approved, email) VALUES (?, ?, ?, ?, ?, ?)`, 
-                            [username, dummyHash, 'cadet', cadetId, 1, email], 
-                            (err) => {
-                                if (err) {
-                                    // If username taken, try appending student ID? No, just fail or log.
-                                    if (err.message.includes('UNIQUE constraint failed')) {
-                                        console.warn(`Username ${username} already exists. Skipping user creation for ${studentId}.`);
-                                        resolve(); // Treat as success but skip? Or fail?
-                                    } else {
-                                        reject(err);
-                                    }
-                                }
-                                else {
-                                    // Initialize Grades
-                                    db.run(`INSERT INTO grades (cadet_id) VALUES (?)`, [cadetId], (err) => {
-                                        if (err) console.error("Error initializing grades", err);
-                                        resolve();
-                                    });
-                                }
-                            }
-                        );
-                    } else {
-                        // Update Email, Approved Status, and optionally Username
-                        // Only update username if a custom one is provided and it's different
-                        let sql = `UPDATE users SET email = ?, is_approved = 1`;
-                        const params = [email];
-
-                        if (customUsername && customUsername !== existingUser.username) {
-                            sql += `, username = ?`;
-                            params.push(customUsername);
-                        }
-
-                        sql += ` WHERE id = ?`;
-                        params.push(existingUser.id);
-
-                        db.run(sql, params, (err) => {
-                            if (err) reject(err);
-                            else resolve();
-                        });
-                    }
-                } catch (err) {
-                    reject(err);
-                }
-            });
-        };
-
-        const findColumnValue = (row, possibleNames) => {
-            const keys = Object.keys(row);
-            for (const key of keys) {
-                const normalizedKey = key.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-                for (const name of possibleNames) {
-                    const normalizedName = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-                    if (normalizedKey === normalizedName) return row[key];
-                }
-            }
-            return undefined;
-        };
-
-        for (const row of data) {
-            // Mapping Logic: Expect headers like "Student ID", "Last Name", etc.
-            // Use fuzzy matching for flexibility
-            let studentId = findColumnValue(row, ['Student ID', 'student_id', 'ID', 'StudentId']);
-            
-            // Check for Custom Username early to use as fallback
-            const customUsername = findColumnValue(row, ['Username', 'username', 'User Name']);
-            const email = findColumnValue(row, ['Email', 'email', 'E-mail']);
-
-            // Fallback: If Student ID is missing but we have a Custom Username, use that as the Student ID
-            // If neither, try to use Email as the ID
-            // If still neither, try to generate from Name (Last Name + First Name)
-            if (!studentId) {
-                if (customUsername) {
-                    studentId = customUsername;
-                } else if (email) {
-                    studentId = email;
-                } else {
-                    const lName = findColumnValue(row, ['Last Name', 'last_name', 'Surname', 'LName']);
-                    const fName = findColumnValue(row, ['First Name', 'first_name', 'FName']);
-                    
-                    if (lName && fName) {
-                        const cleanLast = lName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-                        const cleanFirst = fName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-                        // Generate ID: lastname.firstname
-                        studentId = `${cleanLast}.${cleanFirst}`;
-                    }
-                }
-            }
-            
-            if (!studentId) {
-                failCount++;
-                const availableKeys = Object.keys(row).join(', ');
-                errors.push(`Missing Student ID, Username, Email, or Name. Found columns: ${availableKeys}`);
-                continue;
-            }
-
-            // Robust Name Generation:
-            // If First/Last Name are missing, derive them from the Student ID (which is likely the Username or Email)
-            let lastName = findColumnValue(row, ['Last Name', 'last_name', 'Surname', 'LName']);
-            let firstName = findColumnValue(row, ['First Name', 'first_name', 'FName']);
-
-            if (!firstName || !lastName) {
-                // Try to parse from studentId/Username (e.g. "john.doe", "doe, john", "john_doe")
-                // Remove email domain if present
-                const baseStr = studentId.split('@')[0]; 
-                
-                const parts = baseStr.split(/[._, ]+/).filter(Boolean);
-                if (parts.length >= 2) {
-                    // Assume First Last or Last First? 
-                    // Let's assume the ID is typically "firstname.lastname" or "lastname.firstname"
-                    // We'll just assign them sequentially.
-                    if (!firstName) firstName = parts[0] || 'Unknown';
-                    if (!lastName) lastName = parts.slice(1).join(' ') || 'Cadet';
-                } else {
-                    if (!firstName) firstName = baseStr || 'Unknown';
-                    if (!lastName) lastName = 'Cadet';
-                }
-                
-                // Capitalize
-                const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-                firstName = firstName.split(' ').map(capitalize).join(' ');
-                lastName = lastName.split(' ').map(capitalize).join(' ');
-            }
-
-            const cadetData = {
-                student_id: studentId,
-                last_name: lastName,
-                first_name: firstName,
-                middle_name: findColumnValue(row, ['Middle Name', 'middle_name', 'MName']) || '',
-                suffix_name: findColumnValue(row, ['Suffix', 'suffix_name']) || '',
-                rank: findColumnValue(row, ['Rank', 'rank']) || 'Cdt', // Default rank
-                email: email || '',
-                contact_number: findColumnValue(row, ['Contact Number', 'contact_number', 'Mobile', 'Phone']) || '',
-                address: findColumnValue(row, ['Address', 'address']) || '',
-                course: findColumnValue(row, ['Course', 'course']) || '',
-                year_level: findColumnValue(row, ['Year Level', 'year_level', 'Year']) || '',
-                school_year: findColumnValue(row, ['School Year', 'school_year', 'SY']) || '',
-                battalion: findColumnValue(row, ['Battalion', 'battalion']) || '',
-                company: findColumnValue(row, ['Company', 'company']) || '',
-                platoon: findColumnValue(row, ['Platoon', 'platoon']) || '',
-                cadet_course: findColumnValue(row, ['Cadet Course', 'cadet_course']) || '', 
-                semester: findColumnValue(row, ['Semester', 'semester']) || ''
-            };
-
-            try {
-                let cadetId;
-                const existingCadet = await getCadetByStudentId(studentId);
-
-                if (existingCadet) {
-                    cadetId = existingCadet.id;
-                    await updateCadet(cadetId, cadetData);
-                } else {
-                    cadetId = await insertCadet(cadetData);
-                }
-
-                // Ensure User account exists for login
-                await upsertUser(cadetId, studentId, cadetData.email, customUsername);
-
-                successCount++;
-            } catch (err) {
-                console.error(`Error processing ${studentId}:`, err);
-                failCount++;
-                errors.push(`${studentId}: ${err.message}`);
-            }
-        }
-
+        const result = await processCadetData(data);
+        
         res.json({ 
-            message: `Import complete. Success: ${successCount}, Failed: ${failCount}`,
-            errors: errors.slice(0, 10)
+            message: `Import complete. Success: ${result.successCount}, Failed: ${result.failCount}`,
+            errors: result.errors.slice(0, 10)
         });
 
     } catch (error) {
         console.error('Import error:', error);
         res.status(500).json({ message: 'Failed to process file' });
+    }
+});
+
+router.post('/import-cadets-url', async (req, res) => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ message: 'No URL provided' });
+
+    try {
+        const downloadUrl = getDirectDownloadUrl(url);
+        console.log(`Downloading from: ${downloadUrl}`);
+        
+        const response = await axios.get(downloadUrl, { 
+            responseType: 'arraybuffer' 
+        });
+        
+        const buffer = Buffer.from(response.data);
+        const contentType = response.headers['content-type'];
+        
+        let data = [];
+        
+        if (contentType && contentType.includes('pdf')) {
+             try {
+                data = await parsePdfBuffer(buffer);
+            } catch (err) {
+                 return res.status(400).json({ message: 'Failed to parse PDF from URL: ' + err.message });
+            }
+        } else {
+            // Assume Excel
+            try {
+                const workbook = xlsx.read(buffer, { type: 'buffer' });
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                data = xlsx.utils.sheet_to_json(sheet);
+            } catch (err) {
+                 return res.status(400).json({ message: 'Failed to parse Excel file from URL. Ensure the link is a direct download.' });
+            }
+        }
+        
+        const result = await processCadetData(data);
+        
+        res.json({ 
+            message: `Import complete. Success: ${result.successCount}, Failed: ${result.failCount}`,
+            errors: result.errors.slice(0, 10)
+        });
+
+    } catch (err) {
+        console.error('URL Import error:', err);
+        res.status(500).json({ message: 'Failed to fetch or process file from URL: ' + err.message });
     }
 });
 
@@ -412,40 +437,58 @@ router.get('/analytics', (req, res) => {
         
         analyticsData.attendance = attendanceRows.reverse(); // Show oldest to newest in chart
 
-        // 2. Get Grade Stats (Reuse cadet grade logic)
-        const cadetsSql = `
-            SELECT c.*, 
-                   g.attendance_present, g.merit_points, g.demerit_points, 
-                   g.prelim_score, g.midterm_score, g.final_score, g.status as grade_status
-            FROM cadets c
-            JOIN users u ON u.cadet_id = c.id
-            LEFT JOIN grades g ON c.id = g.cadet_id
-            WHERE u.is_approved = 1
-        `;
-
-        db.all(cadetsSql, [], (err, cadetRows) => {
+        // Get Total Training Days for Calculation
+        db.get("SELECT COUNT(*) as total FROM training_days", [], (err, countRow) => {
             if (err) return res.status(500).json({ message: err.message });
+            const totalTrainingDays = countRow.total || 15; // Default to 15 if 0 to avoid division by zero (or handle gracefully)
 
-            cadetRows.forEach(cadet => {
-                const attendanceScore = (cadet.attendance_present / 15) * 30;
-                const aptitudeScore = (cadet.merit_points - cadet.demerit_points) * 0.3;
-                const subjectScore = ((cadet.prelim_score + cadet.midterm_score + cadet.final_score) / 300) * 40;
-                const finalGrade = attendanceScore + aptitudeScore + subjectScore;
-                
-                const { remarks } = calculateTransmutedGrade(finalGrade, cadet.grade_status);
+            // 2. Get Grade Stats (Reuse cadet grade logic)
+            const cadetsSql = `
+                SELECT c.*, 
+                       g.attendance_present, g.merit_points, g.demerit_points, 
+                       g.prelim_score, g.midterm_score, g.final_score, g.status as grade_status
+                FROM cadets c
+                JOIN users u ON u.cadet_id = c.id
+                LEFT JOIN grades g ON c.id = g.cadet_id
+                WHERE u.is_approved = 1
+            `;
 
-                if (remarks === 'Passed') analyticsData.grades.passed++;
-                else if (remarks === 'Failed') analyticsData.grades.failed++;
-                // Note: Logic implies 'Failed' catches INC/DO/T unless handled specifically, 
-                // but calculateTransmutedGrade marks them as 'Failed'.
-                // If we want separate INC counts, we need to check grade_status directly.
-                if (['INC', 'DO', 'T'].includes(cadet.grade_status)) {
-                    analyticsData.grades.incomplete++;
-                    analyticsData.grades.failed--; // Adjust failed count if we want exclusive categories
-                }
+            db.all(cadetsSql, [], (err, cadetRows) => {
+                if (err) return res.status(500).json({ message: err.message });
+
+                cadetRows.forEach(cadet => {
+                    const safeTotalDays = totalTrainingDays > 0 ? totalTrainingDays : 1;
+                    const attendanceScore = (cadet.attendance_present / safeTotalDays) * 30;
+                    
+                    // Aptitude: Base 100 + Merits - Demerits (Capped at 100)
+                    // "The cadets have already 100 merit points... ceiling value will be up to 100 points only"
+                    // "Merit points minus demerit points then the result will be multiply by 30%"
+                    let rawAptitude = 100 + (cadet.merit_points || 0) - (cadet.demerit_points || 0);
+                    if (rawAptitude > 100) rawAptitude = 100;
+                    // Ensure it doesn't go below 0 (implied, though not explicitly stated, negative grades are weird)
+                    if (rawAptitude < 0) rawAptitude = 0; 
+                    
+                    const aptitudeScore = rawAptitude * 0.3;
+
+                    // Subject Proficiency: (Sum / Total Items) * 40%
+                    // Assuming 300 total items for now
+                    const subjectScore = ((cadet.prelim_score + cadet.midterm_score + cadet.final_score) / 300) * 40;
+                    
+                    const finalGrade = attendanceScore + aptitudeScore + subjectScore;
+                    
+                    const { remarks } = calculateTransmutedGrade(finalGrade, cadet.grade_status);
+
+                    if (remarks === 'Passed') analyticsData.grades.passed++;
+                    else if (remarks === 'Failed') analyticsData.grades.failed++;
+                    
+                    if (['INC', 'DO', 'T'].includes(cadet.grade_status)) {
+                        analyticsData.grades.incomplete++;
+                        analyticsData.grades.failed--; 
+                    }
+                });
+
+                res.json(analyticsData);
             });
-
-            res.json(analyticsData);
         });
     });
 });
@@ -515,42 +558,55 @@ router.post('/cadets', async (req, res) => {
 
 // Get All Cadets (with computed grades) - ONLY APPROVED
 router.get('/cadets', (req, res) => {
-    const sql = `
-        SELECT c.*, u.username,
-               g.attendance_present, g.merit_points, g.demerit_points, 
-               g.prelim_score, g.midterm_score, g.final_score, g.status as grade_status
-        FROM cadets c
-        JOIN users u ON u.cadet_id = c.id
-        LEFT JOIN grades g ON c.id = g.cadet_id
-        WHERE u.is_approved = 1
-    `;
-    db.all(sql, [], (err, rows) => {
+    // 1. Get Total Training Days first
+    db.get("SELECT COUNT(*) as total FROM training_days", [], (err, countRow) => {
         if (err) return res.status(500).json({ message: err.message });
-        
-        // Calculate grades for each cadet
-        const cadetsWithGrades = rows.map(cadet => {
-            const attendanceScore = (cadet.attendance_present / 15) * 30; // 30%
-            // Base Aptitude 100
-            const aptitudeScore = Math.max(0, (100 + cadet.merit_points - cadet.demerit_points)) * 0.3; 
-            const subjectScore = ((cadet.prelim_score + cadet.midterm_score + cadet.final_score) / 300) * 40; // 40%
+        const totalTrainingDays = countRow.total || 15; // Default to 15 if 0
 
-            const finalGrade = attendanceScore + aptitudeScore + subjectScore;
+        const sql = `
+            SELECT c.*, u.username,
+                   g.attendance_present, g.merit_points, g.demerit_points, 
+                   g.prelim_score, g.midterm_score, g.final_score, g.status as grade_status
+            FROM cadets c
+            JOIN users u ON u.cadet_id = c.id
+            LEFT JOIN grades g ON c.id = g.cadet_id
+            WHERE u.is_approved = 1
+        `;
+        db.all(sql, [], (err, rows) => {
+            if (err) return res.status(500).json({ message: err.message });
             
-            // Use grade_status from join, not cadet.status (which is enrollment status)
-            const { transmutedGrade, remarks } = calculateTransmutedGrade(finalGrade, cadet.grade_status);
+            // Calculate grades for each cadet
+            const cadetsWithGrades = rows.map(cadet => {
+                const safeTotalDays = totalTrainingDays > 0 ? totalTrainingDays : 1;
+                const attendanceScore = (cadet.attendance_present / safeTotalDays) * 30; // 30%
+                
+                // Aptitude: Base 100 + Merits - Demerits (Capped at 100, Floor 0)
+                let rawAptitude = 100 + (cadet.merit_points || 0) - (cadet.demerit_points || 0);
+                if (rawAptitude > 100) rawAptitude = 100;
+                if (rawAptitude < 0) rawAptitude = 0;
+                const aptitudeScore = rawAptitude * 0.3;
 
-            return {
-                ...cadet,
-                attendanceScore,
-                aptitudeScore,
-                subjectScore,
-                finalGrade,
-                transmutedGrade,
-                remarks
-            };
+                // Subject: (Sum / 300) * 40%
+                const subjectScore = ((cadet.prelim_score + cadet.midterm_score + cadet.final_score) / 300) * 40; // 40%
+
+                const finalGrade = attendanceScore + aptitudeScore + subjectScore;
+                
+                // Use grade_status from join, not cadet.status (which is enrollment status)
+                const { transmutedGrade, remarks } = calculateTransmutedGrade(finalGrade, cadet.grade_status);
+
+                return {
+                    ...cadet,
+                    attendanceScore,
+                    aptitudeScore,
+                    subjectScore,
+                    finalGrade,
+                    transmutedGrade,
+                    remarks
+                };
+            });
+
+            res.json(cadetsWithGrades);
         });
-
-        res.json(cadetsWithGrades);
     });
 });
 

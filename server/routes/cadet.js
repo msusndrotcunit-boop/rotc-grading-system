@@ -41,37 +41,51 @@ router.get('/my-grades', (req, res) => {
     const cadetId = req.user.cadetId;
     if (!cadetId) return res.status(403).json({ message: 'Not a cadet account' });
 
-    db.get(`SELECT * FROM grades WHERE cadet_id = ?`, [cadetId], (err, row) => {
+    // 1. Get Total Training Days first
+    db.get("SELECT COUNT(*) as total FROM training_days", [], (err, countRow) => {
         if (err) return res.status(500).json({ message: err.message });
-        
-        // If no grades found, return default initialized structure
-        const gradeData = row || {
-            attendance_present: 0,
-            merit_points: 0,
-            demerit_points: 0,
-            prelim_score: 0,
-            midterm_score: 0,
-            final_score: 0,
-            status: 'active'
-        };
+        const totalTrainingDays = countRow.total || 15; // Default to 15
 
-        // Calculate Grades
-        const attendanceScore = (gradeData.attendance_present / 15) * 30;
-        // Base Aptitude 100
-        const aptitudeScore = Math.max(0, (100 + gradeData.merit_points - gradeData.demerit_points)) * 0.3;
-        const subjectScore = ((gradeData.prelim_score + gradeData.midterm_score + gradeData.final_score) / 300) * 40;
-        const finalGrade = attendanceScore + aptitudeScore + subjectScore;
+        db.get(`SELECT * FROM grades WHERE cadet_id = ?`, [cadetId], (err, row) => {
+            if (err) return res.status(500).json({ message: err.message });
+            
+            // If no grades found, return default initialized structure
+            const gradeData = row || {
+                attendance_present: 0,
+                merit_points: 0,
+                demerit_points: 0,
+                prelim_score: 0,
+                midterm_score: 0,
+                final_score: 0,
+                status: 'active'
+            };
 
-        const { transmutedGrade, remarks } = calculateTransmutedGrade(finalGrade, gradeData.status);
+            // Calculate Grades
+            const safeTotalDays = totalTrainingDays > 0 ? totalTrainingDays : 1;
+            const attendanceScore = (gradeData.attendance_present / safeTotalDays) * 30;
+            
+            // Aptitude: Base 100 + Merits - Demerits (Capped at 100)
+            let rawAptitude = 100 + (gradeData.merit_points || 0) - (gradeData.demerit_points || 0);
+            if (rawAptitude > 100) rawAptitude = 100;
+            if (rawAptitude < 0) rawAptitude = 0;
+            const aptitudeScore = rawAptitude * 0.3;
 
-        res.json({
-            ...gradeData,
-            attendanceScore,
-            aptitudeScore,
-            subjectScore,
-            finalGrade,
-            transmutedGrade,
-            remarks
+            // Subject: (Sum / 300) * 40%
+            const subjectScore = ((gradeData.prelim_score + gradeData.midterm_score + gradeData.final_score) / 300) * 40;
+            
+            const finalGrade = attendanceScore + aptitudeScore + subjectScore;
+
+            const { transmutedGrade, remarks } = calculateTransmutedGrade(finalGrade, gradeData.status);
+
+            res.json({
+                ...gradeData,
+                attendanceScore,
+                aptitudeScore,
+                subjectScore,
+                finalGrade,
+                transmutedGrade,
+                remarks
+            });
         });
     });
 });
@@ -107,20 +121,23 @@ router.put('/profile', upload.single('profilePic'), (req, res) => {
         firstName, middleName, lastName, suffixName,
         email, contactNumber, address,
         course, yearLevel, schoolYear,
-        battalion, company, platoon
+        battalion, company, platoon,
+        cadetCourse, semester
     } = req.body;
 
     let sql = `UPDATE cadets SET 
         first_name=?, middle_name=?, last_name=?, suffix_name=?,
         email=?, contact_number=?, address=?,
         course=?, year_level=?, school_year=?,
-        battalion=?, company=?, platoon=?`;
+        battalion=?, company=?, platoon=?,
+        cadet_course=?, semester=?`;
     
     const params = [
         firstName, middleName, lastName, suffixName,
         email, contactNumber, address,
         course, yearLevel, schoolYear,
-        battalion, company, platoon
+        battalion, company, platoon,
+        cadetCourse, semester
     ];
 
     if (req.file) {

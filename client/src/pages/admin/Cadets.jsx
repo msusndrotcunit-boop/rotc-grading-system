@@ -15,6 +15,7 @@ const Cadets = () => {
     // Import State
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importFile, setImportFile] = useState(null);
+    const [importUrl, setImportUrl] = useState('');
     const [importing, setImporting] = useState(false);
 
     // Form States
@@ -179,16 +180,21 @@ const Cadets = () => {
 
     const handleImport = async (e) => {
         e.preventDefault();
-        if (!importFile) return;
+        if (!importFile && !importUrl) return;
 
         setImporting(true);
-        const formData = new FormData();
-        formData.append('file', importFile);
-
+        
         try {
-            const res = await axios.post('/api/admin/import-cadets', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            let res;
+            if (importFile) {
+                const formData = new FormData();
+                formData.append('file', importFile);
+                res = await axios.post('/api/admin/import-cadets', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+            } else {
+                res = await axios.post('/api/admin/import-cadets-url', { url: importUrl });
+            }
             
             let message = res.data.message || 'Import successful!';
             
@@ -199,6 +205,8 @@ const Cadets = () => {
             
             alert(message);
             setIsImportModalOpen(false);
+            setImportFile(null);
+            setImportUrl('');
             fetchCadets();
         } catch (err) {
             console.error(err);
@@ -452,7 +460,7 @@ const Cadets = () => {
                                 </button>
                                 <button 
                                     type="submit"
-                                    disabled={!importFile || importing}
+                                    disabled={(!importFile && !importUrl) || importing}
                                     className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex justify-center items-center ${importing ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     {importing ? (

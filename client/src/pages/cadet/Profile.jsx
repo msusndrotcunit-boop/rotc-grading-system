@@ -10,7 +10,8 @@ import {
     COMPANY_OPTIONS, 
     PLATOON_OPTIONS, 
     SEMESTER_OPTIONS, 
-    COURSE_OPTIONS 
+    COURSE_OPTIONS,
+    CADET_COURSE_OPTIONS 
 } from '../../constants/options';
 
 const Profile = () => {
@@ -332,12 +333,30 @@ const Profile = () => {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cadet Course <span className="text-xs text-red-500">(Read-only)</span></label>
-                                <input className="w-full border dark:border-gray-600 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 p-2 rounded cursor-not-allowed" value={profile.cadetCourse} disabled />
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cadet Course</label>
+                                <select
+                                    className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white p-2 rounded focus:ring-2 focus:ring-blue-500"
+                                    value={profile.cadetCourse}
+                                    onChange={e => setProfile({ ...profile, cadetCourse: e.target.value })}
+                                >
+                                    <option value="">Select Cadet Course</option>
+                                    {CADET_COURSE_OPTIONS.map(option => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Semester <span className="text-xs text-red-500">(Read-only)</span></label>
-                                <input className="w-full border dark:border-gray-600 bg-gray-100 dark:bg-gray-700 dark:text-gray-300 p-2 rounded cursor-not-allowed" value={profile.semester} disabled />
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Semester</label>
+                                <select
+                                    className="w-full border dark:border-gray-600 dark:bg-gray-700 dark:text-white p-2 rounded focus:ring-2 focus:ring-blue-500"
+                                    value={profile.semester}
+                                    onChange={e => setProfile({ ...profile, semester: e.target.value })}
+                                >
+                                    <option value="">Select Semester</option>
+                                    {SEMESTER_OPTIONS.map(option => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
 
