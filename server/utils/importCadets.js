@@ -79,7 +79,7 @@ const upsertUser = (cadetId, studentId, email, customUsername) => {
                     [username, dummyHash, 'cadet', cadetId, 1, email], 
                     (err) => {
                         if (err) {
-                            if (err.message.includes('UNIQUE constraint failed')) {
+                            if (err.message.includes('UNIQUE constraint failed') || err.message.includes('duplicate key value violates unique constraint')) {
                                 resolve();
                             } else {
                                 reject(err);

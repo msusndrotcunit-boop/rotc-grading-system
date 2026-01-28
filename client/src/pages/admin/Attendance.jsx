@@ -304,7 +304,7 @@ const Attendance = () => {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-x-auto">
+                        <div className="flex-1 overflow-auto">
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-gray-100 sticky top-0 z-10">
                                     <tr>

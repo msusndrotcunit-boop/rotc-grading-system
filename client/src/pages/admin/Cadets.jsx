@@ -323,18 +323,18 @@ const Cadets = () => {
                 </div>
             </div>
 
-            <div className="bg-white rounded shadow overflow-x-auto">
+            <div className="bg-white rounded shadow overflow-auto max-h-[calc(100vh-200px)] relative">
                 <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="bg-gray-100 border-b">
-                            <th className="p-4 w-10">
+                    <thead className="bg-gray-100 sticky top-0 z-10">
+                        <tr className="border-b shadow-sm">
+                            <th className="p-4 w-10 bg-gray-100">
                                 <input type="checkbox" onChange={handleSelectAll} checked={selectedCadets.length === cadets.length && cadets.length > 0} />
                             </th>
-                            <th className="p-4">Name & Rank</th>
-                            <th className="p-4">Username</th>
-                            <th className="p-4 text-center">Unit (Coy/Plt)</th>
-                            <th className="p-4 text-center">Status</th>
-                            <th className="p-4 text-right">Actions</th>
+                            <th className="p-4 bg-gray-100">Name & Rank</th>
+                            <th className="p-4 bg-gray-100">Username</th>
+                            <th className="p-4 text-center bg-gray-100">Unit (Coy/Plt)</th>
+                            <th className="p-4 text-center bg-gray-100">Status</th>
+                            <th className="p-4 text-right bg-gray-100">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
