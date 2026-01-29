@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar, Plus, Trash2, CheckCircle, XCircle, Clock, AlertTriangle, Save, Search, ChevronRight, Upload, FileText } from 'lucide-react';
+import { Calendar, Plus, Trash2, CheckCircle, XCircle, Clock, AlertTriangle, Save, Search, ChevronRight, Upload, FileText, Download } from 'lucide-react';
 import ExcuseLetterManager from '../../components/ExcuseLetterManager';
 import { cacheData, getCachedData, cacheSingleton, getSingleton } from '../../utils/db';
 
