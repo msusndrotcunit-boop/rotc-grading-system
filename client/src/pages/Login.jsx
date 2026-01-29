@@ -43,13 +43,11 @@ const Login = () => {
 
     return (
         <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-gray-900 overflow-hidden">
-            {/* Background Logo - Transparent in big sizes */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
-                <img 
-                    src="/assets/rgms_logo.png" 
-                    alt="Background Logo" 
-                    className="w-[150vmin] h-[150vmin] object-contain" 
-                />
+            {/* Background Logos - Transparent in big sizes */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 space-x-4 md:space-x-12 overflow-hidden">
+                <img src="/assets/1002nd_cdc.png" alt="1002nd CDC Logo" className="w-[40vmin] h-[40vmin] md:w-[50vmin] md:h-[50vmin] object-contain" />
+                <img src="/assets/msu_rotc_logo.png" alt="ROTC Unit Logo" className="w-[40vmin] h-[40vmin] md:w-[50vmin] md:h-[50vmin] object-contain" />
+                <img src="/assets/msu_snd_seal.png" alt="MSU-SND Seal" className="w-[40vmin] h-[40vmin] md:w-[50vmin] md:h-[50vmin] object-contain" />
             </div>
 
             <div className="relative z-10 bg-white/90 backdrop-blur-md p-8 rounded-lg shadow-2xl w-full max-w-md border border-green-700/30">
