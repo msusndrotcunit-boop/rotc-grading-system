@@ -342,11 +342,20 @@ const parsePdfBuffer = async (buffer) => {
             const courseMatch = line.match(/\b(MS\s?\d{1,2}|NSTP\s?\d|NST\s?\d{3}|CWTS|LTS)\b/i);
             const cadetCourse = courseMatch ? courseMatch[0].toUpperCase().replace(/\s/g, '') : '';
 
+            // Extract Academic Program (Course) e.g. Bachelor of Science in...
+            const academicMatch = line.match(/\b(Bachelor of [A-Za-z\s]+|BS\s?[A-Za-z\s]+|Associate in [A-Za-z\s]+|Diploma in [A-Za-z\s]+)\b/i);
+            const academicProgram = academicMatch ? academicMatch[0].trim() : '';
+
             // Clean the line
             let cleanLine = line
                 .replace(studentId, '')
                 .replace(email, '')
                 .replace(courseMatch ? courseMatch[0] : '', '')
+                .replace(academicMatch ? academicMatch[0] : '', '')
+                .replace(/Officially enrolled/i, '')
+                .replace(/No COR printed/i, '')
+                .replace(/Old Student/i, '')
+                .replace(/New Student/i, '')
                 .trim();
             
             // Clean up any remaining non-name characters (like bullets, numbering) if they are at start
@@ -364,14 +373,20 @@ const parsePdfBuffer = async (buffer) => {
                 
                 // Try to extract Middle Name from the end of the Rest part
                 // Heuristic: If last token is 1 letter or 1 letter + dot, it's Middle Initial
+                // Or if it looks like a middle name (e.g. Batoon, Omandam) in the context of "First Middle"
+                // But often "First Middle" is just treated as First Name in systems if not explicit.
+                // However, user specifically asked for Middle Name.
+                // In "Kent Jed Batoon", First: Kent Jed, Middle: Batoon.
                 const nameParts = rest.split(/\s+/);
                 if (nameParts.length > 1) {
                     const lastToken = nameParts[nameParts.length - 1];
-                    if (lastToken.length <= 2 || (lastToken.length === 2 && lastToken.endsWith('.'))) {
-                         middleName = nameParts.pop(); // Remove middle name from parts
-                         firstName = nameParts.join(' ');
-                    } else {
+                    // Check if last token is a suffix (Jr, III, etc) - if so, it belongs to First Name (or Suffix field, but we usually append to First/Last)
+                    if (['Jr.', 'Sr.', 'III', 'IV', 'V'].includes(lastToken)) {
                         firstName = rest;
+                    } else {
+                        // Assume last word is Middle Name
+                        middleName = nameParts.pop(); 
+                        firstName = nameParts.join(' ');
                     }
                 } else {
                     firstName = rest;
@@ -398,7 +413,8 @@ const parsePdfBuffer = async (buffer) => {
                 'Last Name': lastName,
                 'First Name': firstName,
                 'Middle Name': middleName,
-                'Cadet Course': cadetCourse
+                'Cadet Course': cadetCourse,
+                'Course': academicProgram
             });
         }
     });
