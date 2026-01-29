@@ -9,7 +9,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 import { 
-    CADET_COURSE_OPTIONS 
+    CADET_COURSE_OPTIONS,
+    COMPANY_OPTIONS
 } from '../../constants/options';
 
 const Cadets = () => {
@@ -354,7 +355,7 @@ const Cadets = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h2 className="text-2xl font-bold">Cadet Management</h2>
                 <div className="flex space-x-2 w-full md:w-auto">
-                    {linkedUrl && (
+                            {linkedUrl && (
                         <button 
                             onClick={handleSync}
                             disabled={syncing}
@@ -395,46 +396,7 @@ const Cadets = () => {
                             <span>Delete ({selectedCadets.length})</span>
                         </button>
                     )}
-                    {/* Password Reset Modal */}
-            {isPasswordResetModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-lg w-full max-w-sm p-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold">Reset Password</h3>
-                            <button onClick={() => setIsPasswordResetModalOpen(false)}><X size={20} /></button>
-                        </div>
-                        <p className="mb-4 text-sm text-gray-600">
-                            Resetting password for <strong>{currentCadet?.last_name}, {currentCadet?.first_name}</strong>
-                        </p>
-                        <form onSubmit={handlePasswordResetSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">New Password</label>
-                                <input 
-                                    type="password" 
-                                    required 
-                                    className="w-full border p-2 rounded"
-                                    value={passwordResetForm.newPassword}
-                                    onChange={e => setPasswordResetForm({...passwordResetForm, newPassword: e.target.value})}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
-                                <input 
-                                    type="password" 
-                                    required 
-                                    className="w-full border p-2 rounded"
-                                    value={passwordResetForm.confirmPassword}
-                                    onChange={e => setPasswordResetForm({...passwordResetForm, confirmPassword: e.target.value})}
-                                />
-                            </div>
-                            <button type="submit" className="w-full bg-yellow-600 text-white py-2 rounded hover:bg-yellow-700">
-                                Update Password
-                            </button>
-                        </form>
-                    </div>
                 </div>
-            )}
-        </div>
             </div>
 
             <div className="bg-white rounded shadow overflow-auto max-h-[calc(100vh-200px)] relative">
@@ -486,6 +448,13 @@ const Cadets = () => {
                                         title="Edit Info"
                                     >
                                         <Pencil size={18} />
+                                    </button>
+                                    <button 
+                                        onClick={() => openPasswordResetModal(cadet)}
+                                        className="text-yellow-600 hover:bg-yellow-50 p-2 rounded"
+                                        title="Reset Password"
+                                    >
+                                        <Key size={18} />
                                     </button>
                                 </td>
                             </tr>
@@ -791,6 +760,45 @@ const Cadets = () => {
                             </div>
 
                             <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Update Cadet</button>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {/* Password Reset Modal */}
+            {isPasswordResetModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg w-full max-w-sm p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold">Reset Password</h3>
+                            <button onClick={() => setIsPasswordResetModalOpen(false)}><X size={20} /></button>
+                        </div>
+                        <p className="mb-4 text-sm text-gray-600">
+                            Resetting password for <strong>{currentCadet?.last_name}, {currentCadet?.first_name}</strong>
+                        </p>
+                        <form onSubmit={handlePasswordResetSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">New Password</label>
+                                <input 
+                                    type="password" 
+                                    required 
+                                    className="w-full border p-2 rounded"
+                                    value={passwordResetForm.newPassword}
+                                    onChange={e => setPasswordResetForm({...passwordResetForm, newPassword: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                                <input 
+                                    type="password" 
+                                    required 
+                                    className="w-full border p-2 rounded"
+                                    value={passwordResetForm.confirmPassword}
+                                    onChange={e => setPasswordResetForm({...passwordResetForm, confirmPassword: e.target.value})}
+                                />
+                            </div>
+                            <button type="submit" className="w-full bg-yellow-600 text-white py-2 rounded hover:bg-yellow-700">
+                                Update Password
+                            </button>
                         </form>
                     </div>
                 </div>
