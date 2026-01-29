@@ -4,12 +4,19 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 
 // Check for various common Postgres environment variable names
-// Prioritize SUPABASE_URL if explicitly set by the user
-const dbUrl = process.env.SUPABASE_URL || 
-              process.env.DATABASE_URL || 
-              process.env.DATABASE_URL_INTERNAL || 
-              process.env.POSTGRES_URL || 
-              process.env.PG_CONNECTION_STRING;
+// We prefer DATABASE_URL if it's a valid postgres connection string.
+// SUPABASE_URL is often the API URL (https://...), so we only use it if it looks like a DB string.
+const getDbUrl = () => {
+    if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+    if (process.env.SUPABASE_URL && process.env.SUPABASE_URL.startsWith('postgres')) return process.env.SUPABASE_URL;
+    if (process.env.DATABASE_URL_INTERNAL) return process.env.DATABASE_URL_INTERNAL;
+    if (process.env.POSTGRES_URL) return process.env.POSTGRES_URL;
+    if (process.env.PG_CONNECTION_STRING) return process.env.PG_CONNECTION_STRING;
+    return process.env.SUPABASE_URL; // Fallback
+};
+
+const dbUrl = getDbUrl();
+console.log(`Using Database Connection String from environment (Length: ${dbUrl ? dbUrl.length : 0})`);
 
 const isPostgres = !!dbUrl;
 
