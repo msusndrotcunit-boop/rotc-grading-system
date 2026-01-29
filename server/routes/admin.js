@@ -346,6 +346,10 @@ const parsePdfBuffer = async (buffer) => {
         const courseMatch = line.match(/\b(MS\s?\d{1,2}|NSTP\s?\d|NST\s?\d{3}|CWTS|LTS)\b/i);
         
         let cleanLineCheck = line.replace(/^[\d.)\-\s]+/, ''); 
+        
+        // Remove trailing numbers (e.g. "Juan Dela Cruz 1.25" or "Juan Dela Cruz 90")
+        cleanLineCheck = cleanLineCheck.replace(/\s+[\d.]+$/, '');
+
         const hasDigits = /\d/.test(cleanLineCheck);
         const wordCount = cleanLineCheck.trim().split(/\s+/).length;
         
@@ -353,7 +357,13 @@ const parsePdfBuffer = async (buffer) => {
         const lowerLine = cleanLineCheck.toLowerCase();
         const isBlacklisted = blacklist.some(w => lowerLine.includes(w));
 
-        const likelyName = !hasDigits && wordCount >= 2 && wordCount < 6 && cleanLineCheck.trim().length > 5 && !isBlacklisted; // Heuristic for Name only
+        // Heuristic for Name only: Allow digits if they were stripped or if we decide to be more lenient. 
+        // We already stripped trailing digits. If digits remain in the middle, it might be an address or date.
+        // Relaxing: !hasDigits check might be too strict if there are artifacts. 
+        // But for "just get the students name", we really want alphabetic names.
+        // Let's rely on word count and length primarily.
+        
+        const likelyName = wordCount >= 2 && wordCount < 8 && cleanLineCheck.trim().length > 5 && !isBlacklisted && !cleanLineCheck.includes('...'); 
 
         // Skip lines that are too short or likely headers/footers if no ID/Course
         if (!studentId && !courseMatch && !hasComma && !likelyName) {
@@ -384,8 +394,11 @@ const parsePdfBuffer = async (buffer) => {
             .replace(/New Student/i, '')
             .trim();
         
-        // Clean up any remaining non-name characters (like bullets, numbering) if they are at start
+        // Clean up leading non-name chars
         cleanLine = cleanLine.replace(/^[\d.)\-\s]+/, '');
+        
+        // Clean up trailing non-name chars (digits, dots) - STRICT cleaning for name extraction
+        cleanLine = cleanLine.replace(/[\d\s.]+$/, '');
 
         let lastName = '';
         let firstName = '';
@@ -413,10 +426,20 @@ const parsePdfBuffer = async (buffer) => {
             }
         } else {
             // Format: First Name Middle Name Last Name (Assumed if no comma)
-            // Without comma, this is risky, but if ID exists we can try.
             const parts = cleanLine.split(/\s+/);
             if (parts.length > 1) {
                 lastName = parts.pop(); // Last token is Last Name
+                
+                // Check if last name is a suffix (Jr, Sr, III)
+                if (['Jr.', 'Jr', 'Sr.', 'Sr', 'III', 'IV', 'V'].includes(lastName)) {
+                     const suffix = lastName;
+                     if (parts.length > 0) lastName = parts.pop(); // Get actual last name
+                     // Append suffix to last name for now or handle separately (DB has suffix column)
+                     // But our parser below puts suffix in its own field if we had it. 
+                     // Here we just assign to lastName for simplicity or append.
+                     lastName = lastName + ' ' + suffix;
+                }
+
                 firstName = parts.join(' ');
             } else {
                 lastName = cleanLine;
