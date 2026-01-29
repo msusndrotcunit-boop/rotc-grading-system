@@ -23,20 +23,28 @@ if (isPostgres) {
     // const connectionString = dbUrl.trim();
     // console.log('Using DB URL:', connectionString.replace(/:[^:@]*@/, ':****@')); // Debug log
 
-    // Parse connection string manually to ensure 'family: 4' is respected
-    // (Passing connectionString directly might override/ignore family option in some pg versions)
     const { URL } = require('url');
-    const params = new URL(dbUrl.trim());
+    let poolConfig;
 
-    const poolConfig = {
-        user: params.username,
-        password: params.password,
-        host: params.hostname,
-        port: params.port,
-        database: params.pathname.split('/')[1],
-        ssl: { rejectUnauthorized: false },
-        family: 4, // Force IPv4 to resolve ENETUNREACH
-    };
+    try {
+        const params = new URL(dbUrl.trim());
+        poolConfig = {
+            user: params.username,
+            password: params.password,
+            host: params.hostname,
+            port: params.port,
+            database: params.pathname.split('/')[1],
+            ssl: { rejectUnauthorized: false },
+            family: 4, // Force IPv4 to resolve ENETUNREACH
+        };
+    } catch (parseError) {
+        console.error('Error parsing DB URL:', parseError.message);
+        // Fallback to connection string if URL parsing fails (might miss family: 4 but avoids crash)
+        poolConfig = {
+            connectionString: dbUrl.trim(),
+            ssl: { rejectUnauthorized: false },
+        };
+    }
 
     const pool = new Pool(poolConfig);
 
