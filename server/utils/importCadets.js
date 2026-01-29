@@ -124,6 +124,25 @@ const findColumnValue = (row, possibleNames) => {
     return undefined;
 };
 
+const getCadetByName = (firstName, lastName, middleName) => {
+    return new Promise((resolve, reject) => {
+        // Try to match by First Name and Last Name first
+        // If Middle Name is provided, use it to refine
+        let sql = 'SELECT * FROM cadets WHERE first_name = ? AND last_name = ?';
+        let params = [firstName, lastName];
+        
+        if (middleName) {
+            sql += ' AND middle_name = ?';
+            params.push(middleName);
+        }
+        
+        db.get(sql, params, (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+};
+
 const processCadetData = async (data) => {
     let successCount = 0;
     let failCount = 0;
@@ -132,6 +151,8 @@ const processCadetData = async (data) => {
         let studentId = findColumnValue(row, ['Student ID', 'student_id', 'ID', 'StudentId', 'Username', 'username']);
         const customUsername = findColumnValue(row, ['Username', 'username', 'User Name']);
         const email = findColumnValue(row, ['Email', 'email', 'E-mail']);
+        
+        // Priority 1: Student ID
         if (!studentId) {
             if (customUsername) {
                 studentId = customUsername;
@@ -139,33 +160,41 @@ const processCadetData = async (data) => {
                 studentId = email;
             }
         }
-        if (!studentId) {
-            failCount++;
-            const availableKeys = Object.keys(row).join(', ');
-            errors.push(`Missing Student ID, Username, Email, or Name. Found columns: ${availableKeys}`);
-            continue;
-        }
+        
         let lastName = findColumnValue(row, ['Last Name', 'last_name', 'Surname', 'LName']);
         let firstName = findColumnValue(row, ['First Name', 'first_name', 'FName']);
+        let middleName = findColumnValue(row, ['Middle Name', 'middle_name', 'MName']) || '';
+        
+        // If Name is missing, try to extract from ID/Email
         if (!firstName || !lastName) {
-            const baseStr = studentId.split('@')[0];
-            const parts = baseStr.split(/[._, ]+/).filter(Boolean);
-            if (parts.length >= 2) {
-                if (!firstName) firstName = parts[0] || 'Unknown';
-                if (!lastName) lastName = parts.slice(1).join(' ') || 'Cadet';
-            } else {
-                if (!firstName) firstName = baseStr || 'Unknown';
-                if (!lastName) lastName = 'Cadet';
-            }
-            const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-            firstName = firstName.split(' ').map(capitalize).join(' ');
-            lastName = lastName.split(' ').map(capitalize).join(' ');
+             if (studentId) {
+                const baseStr = studentId.split('@')[0];
+                const parts = baseStr.split(/[._, ]+/).filter(Boolean);
+                if (parts.length >= 2) {
+                    if (!firstName) firstName = parts[0] || 'Unknown';
+                    if (!lastName) lastName = parts.slice(1).join(' ') || 'Cadet';
+                } else {
+                    if (!firstName) firstName = baseStr || 'Unknown';
+                    if (!lastName) lastName = 'Cadet';
+                }
+                const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+                firstName = firstName.split(' ').map(capitalize).join(' ');
+                lastName = lastName.split(' ').map(capitalize).join(' ');
+             }
         }
+
+        if (!studentId && (!firstName || !lastName)) {
+            failCount++;
+            const availableKeys = Object.keys(row).join(', ');
+            errors.push(`Missing Student ID or Name. Found columns: ${availableKeys}`);
+            continue;
+        }
+
         const cadetData = {
             student_id: studentId,
             last_name: lastName,
             first_name: firstName,
-            middle_name: findColumnValue(row, ['Middle Name', 'middle_name', 'MName']) || '',
+            middle_name: middleName,
             suffix_name: findColumnValue(row, ['Suffix', 'suffix_name']) || '',
             rank: findColumnValue(row, ['Rank', 'rank']) || 'Cdt',
             email: email || '',
@@ -180,22 +209,186 @@ const processCadetData = async (data) => {
             cadet_course: findColumnValue(row, ['Cadet Course', 'cadet_course']) || '',
             semester: findColumnValue(row, ['Semester', 'semester']) || ''
         };
+        
         try {
             let cadetId;
-            const existingCadet = await getCadetByStudentId(studentId);
+            let existingCadet = null;
+            
+            // Priority 1: Find by Student ID
+            if (studentId) {
+                existingCadet = await getCadetByStudentId(studentId);
+            }
+            
+            // Priority 2: Find by Name (First + Middle + Last)
+            if (!existingCadet && firstName && lastName) {
+                existingCadet = await getCadetByName(firstName, lastName, middleName);
+            }
+            
             if (existingCadet) {
                 cadetId = existingCadet.id;
+                // Update
                 await updateCadet(cadetId, cadetData);
+                
+                // If we matched by Name but input has a new Student ID, we should probably update it?
+                // But Student ID is usually immutable or unique.
+                // For now, let's assume we update everything EXCEPT student_id if it's null in input.
+                // But cadetData.student_id might be null if we didn't find it.
+                // If we matched by name, we might want to preserve the existing student_id if input is missing it.
+                if (!cadetData.student_id) {
+                     // Keep existing ID for user upsert
+                     // But wait, updateCadet uses cadetData.student_id? 
+                     // No, updateCadet function doesn't update student_id in the SQL I wrote earlier?
+                     // Let's check updateCadet implementation.
+                }
             } else {
-                cadetId = await insertCadet(cadetData);
+                // Insert
+                if (studentId) {
+                    cadetId = await insertCadet(cadetData);
+                } else {
+                    // Cannot insert without Student ID
+                    throw new Error("Cannot create new cadet without Student ID");
+                }
             }
-            await upsertUser(cadetId, studentId, cadetData.email, customUsername);
+            
+            // Upsert User Account
+            // Use existing student_id if we have it
+            const effectiveStudentId = existingCadet ? existingCadet.student_id : studentId;
+            if (effectiveStudentId) {
+                 await upsertUser(cadetId, effectiveStudentId, cadetData.email, customUsername);
+            }
+            
             successCount++;
         } catch (err) {
             failCount++;
-            errors.push(`${studentId}: ${err.message}`);
+            errors.push(`${studentId || firstName + ' ' + lastName}: ${err.message}`);
         }
     }
+    return { successCount, failCount, errors };
+};
+
+const getStaffByName = (firstName, lastName) => {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT * FROM training_staff WHERE first_name = ? AND last_name = ?', [firstName, lastName], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+};
+
+const insertTrainingStaff = (staff) => {
+    return new Promise((resolve, reject) => {
+        const sql = `INSERT INTO training_staff (rank, first_name, middle_name, last_name, suffix_name, email, contact_number, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+        const params = [
+            staff.rank || '', staff.first_name, staff.middle_name || '', staff.last_name, staff.suffix_name || '',
+            staff.email || null, staff.contact_number || '', staff.role || 'Instructor'
+        ];
+        db.run(sql, params, function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+        });
+    });
+};
+
+const upsertStaffUser = (staffId, email, customUsername, firstName, lastName) => {
+    return new Promise((resolve, reject) => {
+        const generateUsername = () => {
+            if (customUsername) return customUsername;
+            if (email) return email.split('@')[0];
+            return `${firstName.toLowerCase()}.${lastName.toLowerCase()}`.replace(/[^a-z0-9]/g, '');
+        };
+        
+        const username = generateUsername();
+        const dummyHash = '$2a$10$DUMMYPASSWORDHASHDO_NOT_USE_OR_YOU_WILL_BE_HACKED';
+        
+        // Check if user exists for this staff
+        db.get('SELECT * FROM users WHERE staff_id = ?', [staffId], (err, row) => {
+            if (err) return reject(err);
+            
+            if (!row) {
+                // Create user
+                const insertUser = (uName) => {
+                    db.run(`INSERT INTO users (username, password, role, staff_id, is_approved, email) VALUES (?, ?, ?, ?, ?, ?)`, 
+                        [uName, dummyHash, 'training_staff', staffId, 1, email], 
+                        (err) => {
+                            if (err) {
+                                // If username taken, try appending number
+                                if (err.message.includes('UNIQUE constraint') || err.message.includes('duplicate key')) {
+                                    const newUsername = uName + Math.floor(Math.random() * 1000);
+                                    insertUser(newUsername);
+                                } else {
+                                    reject(err);
+                                }
+                            } else {
+                                resolve();
+                            }
+                        }
+                    );
+                };
+                insertUser(username);
+            } else {
+                // Update email if provided
+                if (email) {
+                     db.run(`UPDATE users SET email = ? WHERE id = ?`, [email, row.id], (err) => {
+                         if (err) reject(err);
+                         else resolve();
+                     });
+                } else {
+                    resolve();
+                }
+            }
+        });
+    });
+};
+
+const processStaffData = async (data) => {
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
+    
+    for (const row of data) {
+        let firstName = findColumnValue(row, ['First Name', 'first_name', 'FName', 'Given Name']);
+        let lastName = findColumnValue(row, ['Last Name', 'last_name', 'Surname', 'LName']);
+        let middleName = findColumnValue(row, ['Middle Name', 'middle_name', 'MName']);
+        
+        if (!firstName || !lastName) {
+             failCount++;
+             errors.push(`Missing First Name or Last Name. Found columns: ${Object.keys(row).join(', ')}`);
+             continue;
+        }
+        
+        const email = findColumnValue(row, ['Email', 'email', 'E-mail']);
+        const username = findColumnValue(row, ['Username', 'username', 'User Name']);
+        
+        const staffData = {
+            rank: findColumnValue(row, ['Rank', 'rank']) || 'Mr/Ms',
+            first_name: firstName,
+            middle_name: middleName || '',
+            last_name: lastName,
+            suffix_name: findColumnValue(row, ['Suffix', 'suffix_name']) || '',
+            email: email || null,
+            contact_number: findColumnValue(row, ['Contact Number', 'contact_number', 'Mobile']) || '',
+            role: findColumnValue(row, ['Role', 'role']) || 'Instructor'
+        };
+        
+        try {
+            let staffId;
+            // Priority: Find by Name (First + Last + Middle)
+            const existingStaff = await getStaffByName(firstName, lastName, middleName);
+            
+            if (existingStaff) {
+                staffId = existingStaff.id;
+            } else {
+                staffId = await insertTrainingStaff(staffData);
+            }
+            
+            await upsertStaffUser(staffId, email, username, firstName, lastName);
+            successCount++;
+        } catch (err) {
+            failCount++;
+            errors.push(`${firstName} ${lastName}: ${err.message}`);
+        }
+    }
+    
     return { successCount, failCount, errors };
 };
 
@@ -454,6 +647,7 @@ const processUrlImport = async (url) => {
 
 module.exports = {
     processCadetData,
+    processStaffData,
     processUrlImport,
     getDirectDownloadUrl,
     parsePdfBuffer

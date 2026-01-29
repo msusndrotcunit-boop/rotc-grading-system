@@ -15,6 +15,7 @@ const AdminGrading = lazy(() => import('./pages/admin/Grading'));
 const AdminAttendance = lazy(() => import('./pages/admin/Attendance'));
 const AdminActivities = lazy(() => import('./pages/admin/Activities'));
 const AdminProfile = lazy(() => import('./pages/admin/Profile'));
+const AdminStaff = lazy(() => import('./pages/admin/TrainingStaffManagement'));
 
 // Cadet Pages
 const CadetLayout = lazy(() => import('./layouts/CadetLayout'));
@@ -53,6 +54,7 @@ function App() {
               <Route path="/admin" element={<AdminLayout />}>
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="cadets" element={<AdminCadets />} />
+                <Route path="staff" element={<AdminStaff />} />
                 <Route path="grading" element={<AdminGrading />} />
                 <Route path="attendance" element={<AdminAttendance />} />
                 <Route path="activities" element={<AdminActivities />} />

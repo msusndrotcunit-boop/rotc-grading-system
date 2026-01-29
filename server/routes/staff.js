@@ -123,9 +123,21 @@ router.put('/:id', authenticateToken, isAdmin, (req, res) => {
 
 // DELETE Staff
 router.delete('/:id', authenticateToken, isAdmin, (req, res) => {
-    db.run("DELETE FROM training_staff WHERE id = ?", [req.params.id], function(err) {
-        if (err) return res.status(500).json({ message: err.message });
-        res.json({ message: 'Staff deleted successfully' });
+    const staffId = req.params.id;
+    
+    // First delete the user account associated with this staff
+    db.run("DELETE FROM users WHERE staff_id = ?", [staffId], (err) => {
+        if (err) {
+            console.error('Error deleting user account for staff:', err);
+            // Proceed to delete staff profile anyway? Or fail?
+            // Better to proceed so we don't get stuck with undeletable staff.
+        }
+        
+        // Then delete the staff profile
+        db.run("DELETE FROM training_staff WHERE id = ?", [staffId], function(err) {
+            if (err) return res.status(500).json({ message: err.message });
+            res.json({ message: 'Staff deleted successfully' });
+        });
     });
 });
 

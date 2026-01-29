@@ -9,6 +9,7 @@ const adminRoutes = require('./routes/admin');
 const cadetRoutes = require('./routes/cadet');
 const attendanceRoutes = require('./routes/attendance');
 const excuseRoutes = require('./routes/excuse');
+const staffRoutes = require('./routes/staff');
 const integrationRoutes = require('./routes/integration');
 const { processUrlImport } = require('./utils/importCadets');
 const dbSettingsKey = 'cadet_list_source_url';
@@ -42,6 +43,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/cadet', cadetRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/excuse', excuseRoutes);
+app.use('/api/staff', staffRoutes);
 app.use('/api/integration', integrationRoutes);
 
 // Create uploads directory if not exists

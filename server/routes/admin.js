@@ -360,6 +360,43 @@ const parsePdfBuffer = async (buffer) => {
     return data;
 };
 
+
+router.post('/import-staff', upload.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+
+    try {
+        let data = [];
+        
+        // Only Excel for now
+        if (req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf')) {
+            return res.status(400).json({ message: 'PDF import not supported for staff. Please use Excel.' });
+        } else {
+            const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+            if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                return res.status(400).json({ message: 'Excel file has no sheets' });
+            }
+            let aggregated = [];
+            workbook.SheetNames.forEach(name => {
+                const sheet = workbook.Sheets[name];
+                const sheetData = xlsx.utils.sheet_to_json(sheet);
+                aggregated = aggregated.concat(sheetData);
+            });
+            data = aggregated;
+        }
+
+        const result = await processStaffData(data);
+        
+        res.json({ 
+            message: `Import complete. Success: ${result.successCount}, Failed: ${result.failCount}`,
+            errors: result.errors.slice(0, 10)
+        });
+
+    } catch (error) {
+        console.error('Staff Import error:', error);
+        res.status(500).json({ message: 'Failed to process file' });
+    }
+});
+
 router.post('/import-cadets', upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
 
