@@ -25,7 +25,14 @@ if (isPostgres) {
 
     const pool = new Pool({
         connectionString: connectionString,
-        ssl: { rejectUnauthorized: false }
+        ssl: { rejectUnauthorized: false },
+        // Force IPv4 to avoid ENETUNREACH on networks without IPv6 support (fixes Supabase connection issues)
+        family: 4, 
+    });
+
+    pool.on('error', (err, client) => {
+        console.error('Unexpected error on idle client', err);
+        // Don't exit, just log. Connection might recover.
     });
 
     console.log('Connected to PostgreSQL database.');
