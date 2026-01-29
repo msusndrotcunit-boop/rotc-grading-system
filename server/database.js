@@ -498,12 +498,13 @@ function initSqliteDb() {
 }
 
 function seedAdmin() {
-    db.get("SELECT * FROM users WHERE username = 'msu-sndrotc_admin'", async (err, row) => {
+    const adminUsername = process.env.ADMIN_USERNAME || 'msu-sndrotc_admin';
+    db.get("SELECT * FROM users WHERE username = ?", [adminUsername], async (err, row) => {
         if (!row) {
             console.log('Admin not found. Seeding admin...');
-            const username = 'msu-sndrotc_admin';
-            const password = 'admingrading@2026';
-            const email = 'msusndrotcunit@gmail.com';
+            const username = adminUsername;
+            const password = process.env.ADMIN_PASSWORD || 'admingrading@2026';
+            const email = process.env.ADMIN_EMAIL || 'msusndrotcunit@gmail.com';
             
             try {
                 const hashedPassword = await bcrypt.hash(password, 10);

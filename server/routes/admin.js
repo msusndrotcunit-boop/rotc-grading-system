@@ -1085,6 +1085,62 @@ router.get('/analytics', (req, res) => {
     });
 });
 
+// --- Password Reset ---
+
+router.post('/reset-password', async (req, res) => {
+    const { type, id, newPassword } = req.body;
+
+    if (!id || !newPassword) {
+        return res.status(400).json({ message: 'User ID and new password are required' });
+    }
+
+    try {
+        let userId;
+
+        // If type is provided (cadet/staff), find the user_id first
+        if (type === 'staff') {
+            const user = await new Promise((resolve, reject) => {
+                db.get('SELECT id FROM users WHERE staff_id = ?', [id], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+            if (!user) return res.status(404).json({ message: 'User not found for this staff member' });
+            userId = user.id;
+        } else if (type === 'cadet') {
+            // Note: Frontend sends cadet ID as 'id'
+            const user = await new Promise((resolve, reject) => {
+                db.get('SELECT id FROM users WHERE cadet_id = ?', [id], (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+            if (!user) return res.status(404).json({ message: 'User not found for this cadet' });
+            userId = user.id;
+        } else {
+            // Direct User ID (if applicable in future)
+            userId = id;
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId], function(err) {
+            if (err) {
+                console.error('Password reset error:', err);
+                return res.status(500).json({ message: 'Database error updating password' });
+            }
+            if (this.changes === 0) {
+                return res.status(404).json({ message: 'User not found' });
+            }
+            res.json({ message: 'Password updated successfully' });
+        });
+
+    } catch (err) {
+        console.error('Reset password error:', err);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 // --- Cadet Management ---
 
 // Create Single Cadet (Manual Add)
@@ -1457,6 +1513,47 @@ router.put('/users/:id/approve', (req, res) => {
 
         res.json({ message: 'User approved' });
     });
+});
+
+// Reset Password for User (Cadet or Staff)
+router.post('/reset-password', async (req, res) => {
+    const { userId, type, id, newPassword } = req.body;
+    
+    if (!newPassword) {
+        return res.status(400).json({ message: 'New Password is required' });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        let sql = '';
+        let params = [];
+
+        if (userId) {
+            // If explicit user ID is provided
+            sql = `UPDATE users SET password = ? WHERE id = ?`;
+            params = [hashedPassword, userId];
+        } else if (type === 'cadet' && id) {
+            // Reset by Cadet ID
+            sql = `UPDATE users SET password = ? WHERE cadet_id = ?`;
+            params = [hashedPassword, id];
+        } else if (type === 'staff' && id) {
+            // Reset by Staff ID
+            sql = `UPDATE users SET password = ? WHERE staff_id = ?`;
+            params = [hashedPassword, id];
+        } else {
+            return res.status(400).json({ message: 'Invalid request parameters' });
+        }
+
+        db.run(sql, params, function(err) {
+            if (err) return res.status(500).json({ message: err.message });
+            if (this.changes === 0) return res.status(404).json({ message: 'User not found' });
+            
+            res.json({ message: 'Password reset successfully' });
+        });
+    } catch (err) {
+        console.error("Reset password error:", err);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 });
 
 // Delete User (Reject)

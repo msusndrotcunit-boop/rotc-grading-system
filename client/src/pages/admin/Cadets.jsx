@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Pencil, Trash2, X, FileDown, Upload, Plus, RefreshCw, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
+import { Pencil, Trash2, X, FileDown, Upload, Plus, RefreshCw, PieChart as PieChartIcon, BarChart3, Key } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { cacheData, getCachedData } from '../../utils/db';
@@ -19,6 +19,8 @@ const Cadets = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [currentCadet, setCurrentCadet] = useState(null);
     const [showAnalytics, setShowAnalytics] = useState(false);
+    const [isPasswordResetModalOpen, setIsPasswordResetModalOpen] = useState(false);
+    const [passwordResetForm, setPasswordResetForm] = useState({ newPassword: '', confirmPassword: '' });
 
     // Import State
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -253,6 +255,31 @@ const Cadets = () => {
         }
     };
 
+    const openPasswordResetModal = (cadet) => {
+        setCurrentCadet(cadet);
+        setPasswordResetForm({ newPassword: '', confirmPassword: '' });
+        setIsPasswordResetModalOpen(true);
+    };
+
+    const handlePasswordResetSubmit = async (e) => {
+        e.preventDefault();
+        if (passwordResetForm.newPassword !== passwordResetForm.confirmPassword) {
+            alert('Passwords do not match');
+            return;
+        }
+        try {
+            await axios.post('/api/admin/reset-password', {
+                type: 'cadet',
+                id: currentCadet.id,
+                newPassword: passwordResetForm.newPassword
+            });
+            alert('Password reset successfully');
+            setIsPasswordResetModalOpen(false);
+        } catch (err) {
+            alert('Failed to reset password: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     const handleImport = async (e) => {
         e.preventDefault();
         if (!importFile && !importUrl) return;
@@ -368,7 +395,46 @@ const Cadets = () => {
                             <span>Delete ({selectedCadets.length})</span>
                         </button>
                     )}
+                    {/* Password Reset Modal */}
+            {isPasswordResetModalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg w-full max-w-sm p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold">Reset Password</h3>
+                            <button onClick={() => setIsPasswordResetModalOpen(false)}><X size={20} /></button>
+                        </div>
+                        <p className="mb-4 text-sm text-gray-600">
+                            Resetting password for <strong>{currentCadet?.last_name}, {currentCadet?.first_name}</strong>
+                        </p>
+                        <form onSubmit={handlePasswordResetSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">New Password</label>
+                                <input 
+                                    type="password" 
+                                    required 
+                                    className="w-full border p-2 rounded"
+                                    value={passwordResetForm.newPassword}
+                                    onChange={e => setPasswordResetForm({...passwordResetForm, newPassword: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                                <input 
+                                    type="password" 
+                                    required 
+                                    className="w-full border p-2 rounded"
+                                    value={passwordResetForm.confirmPassword}
+                                    onChange={e => setPasswordResetForm({...passwordResetForm, confirmPassword: e.target.value})}
+                                />
+                            </div>
+                            <button type="submit" className="w-full bg-yellow-600 text-white py-2 rounded hover:bg-yellow-700">
+                                Update Password
+                            </button>
+                        </form>
+                    </div>
                 </div>
+            )}
+        </div>
             </div>
 
             <div className="bg-white rounded shadow overflow-auto max-h-[calc(100vh-200px)] relative">
