@@ -221,11 +221,36 @@ const Attendance = () => {
         return acc;
     }, {});
 
+    const handleDownloadReport = (type) => {
+        const url = type === 'cadet' 
+            ? '/api/admin/reports/attendance/cadets' 
+            : '/api/admin/reports/attendance/staff';
+        
+        // Trigger download
+        window.open(url, '_blank');
+    };
+
     return (
         <div className="h-full flex flex-col gap-4">
             <div className="flex justify-between items-center bg-white p-4 rounded shadow">
                 <h1 className="text-2xl font-bold text-gray-800">Attendance & Excuses</h1>
                 <div className="flex space-x-2">
+                    <div className="mr-4 flex space-x-2 border-r pr-4">
+                        <button 
+                            onClick={() => handleDownloadReport('cadet')}
+                            className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center text-sm"
+                            title="Download Cadet Attendance Report"
+                        >
+                            <Download size={16} className="mr-2" /> Cadet Report
+                        </button>
+                        <button 
+                            onClick={() => handleDownloadReport('staff')}
+                            className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center text-sm"
+                            title="Download Staff Attendance Report"
+                        >
+                            <Download size={16} className="mr-2" /> Staff Report
+                        </button>
+                    </div>
                     <button 
                         onClick={() => setViewMode('attendance')}
                         className={`px-4 py-2 rounded flex items-center transition ${viewMode === 'attendance' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}

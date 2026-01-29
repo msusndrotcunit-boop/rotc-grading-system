@@ -437,6 +437,167 @@ router.post('/import-cadets', upload.single('file'), async (req, res) => {
     }
 });
 
+// --- Reports Generation ---
+
+// Generate Cadet Attendance Report
+router.get('/reports/attendance/cadets', async (req, res) => {
+    try {
+        // 1. Fetch all training days ordered by date
+        const trainingDays = await new Promise((resolve, reject) => {
+            db.all("SELECT id, date, title FROM training_days ORDER BY date ASC", [], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+
+        // 2. Fetch all cadets ordered by name
+        const cadets = await new Promise((resolve, reject) => {
+            db.all("SELECT id, student_id, first_name, middle_name, last_name FROM cadets ORDER BY last_name ASC, first_name ASC", [], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+
+        // 3. Fetch all attendance records
+        const records = await new Promise((resolve, reject) => {
+            db.all("SELECT cadet_id, training_day_id, status FROM attendance_records", [], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+
+        // 4. Create Lookup Map for Records: key = `${cadet_id}_${training_day_id}`, value = status
+        const recordMap = {};
+        records.forEach(r => {
+            recordMap[`${r.cadet_id}_${r.training_day_id}`] = r.status;
+        });
+
+        // 5. Build Data Array for Excel
+        const data = [];
+        
+        // Header Row
+        const header = ['Student ID', 'First Name', 'Middle Name', 'Last Name'];
+        trainingDays.forEach(day => {
+            header.push(`${day.title} (${day.date})`);
+        });
+        data.push(header);
+
+        // Data Rows
+        cadets.forEach(cadet => {
+            const row = [
+                cadet.student_id,
+                cadet.first_name,
+                cadet.middle_name || '',
+                cadet.last_name
+            ];
+
+            trainingDays.forEach(day => {
+                const status = recordMap[`${cadet.id}_${day.id}`] || 'Absent'; // Default to Absent if no record? Or empty? Usually 'Absent' or '-'
+                // If the system creates records for everyone, lookup should exist. 
+                // If not, it means they were not marked. Let's assume 'Absent' or 'N/A'.
+                // Ideally, the system creates records for all active cadets when a training day is created.
+                // If undefined, let's put 'N/A' or blank.
+                row.push(status ? status.toUpperCase() : '-');
+            });
+
+            data.push(row);
+        });
+
+        // 6. Generate Excel
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.aoa_to_sheet(data);
+        xlsx.utils.book_append_sheet(wb, ws, "Cadet Attendance");
+
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename="Cadet_Attendance_Report.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+
+    } catch (error) {
+        console.error("Report Generation Error:", error);
+        res.status(500).json({ message: "Failed to generate report" });
+    }
+});
+
+// Generate Staff Attendance Report
+router.get('/reports/attendance/staff', async (req, res) => {
+    try {
+        // 1. Fetch all training days (same as cadets?) or is there a separate staff training schedule?
+        // Assuming same training days for now.
+        const trainingDays = await new Promise((resolve, reject) => {
+            db.all("SELECT id, date, title FROM training_days ORDER BY date ASC", [], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+
+        // 2. Fetch all staff ordered by name
+        const staffList = await new Promise((resolve, reject) => {
+            db.all("SELECT id, rank, first_name, middle_name, last_name FROM training_staff ORDER BY last_name ASC, first_name ASC", [], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+
+        // 3. Fetch all staff attendance records
+        const records = await new Promise((resolve, reject) => {
+            db.all("SELECT staff_id, training_day_id, status FROM staff_attendance_records", [], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+
+        // 4. Create Lookup Map
+        const recordMap = {};
+        records.forEach(r => {
+            recordMap[`${r.staff_id}_${r.training_day_id}`] = r.status;
+        });
+
+        // 5. Build Data Array
+        const data = [];
+        
+        // Header
+        const header = ['Rank', 'First Name', 'Middle Name', 'Last Name'];
+        trainingDays.forEach(day => {
+            header.push(`${day.title} (${day.date})`);
+        });
+        data.push(header);
+
+        // Rows
+        staffList.forEach(staff => {
+            const row = [
+                staff.rank,
+                staff.first_name,
+                staff.middle_name || '',
+                staff.last_name
+            ];
+
+            trainingDays.forEach(day => {
+                const status = recordMap[`${staff.id}_${day.id}`];
+                row.push(status ? status.toUpperCase() : '-');
+            });
+
+            data.push(row);
+        });
+
+        // 6. Generate Excel
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.aoa_to_sheet(data);
+        xlsx.utils.book_append_sheet(wb, ws, "Staff Attendance");
+
+        const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+        res.setHeader('Content-Disposition', 'attachment; filename="Staff_Attendance_Report.xlsx"');
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.send(buffer);
+
+    } catch (error) {
+        console.error("Staff Report Error:", error);
+        res.status(500).json({ message: "Failed to generate report" });
+    }
+});
+
 const processUrlImport = async (url) => {
     let currentUrl = getDirectDownloadUrl(url);
     console.log(`Original URL: ${url}`);
