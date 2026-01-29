@@ -1219,39 +1219,109 @@ router.put('/cadets/:id', (req, res) => {
         cadetCourse, semester, status 
     } = req.body;
 
-    // Use username if studentId is not provided
-    const finalStudentId = studentId || username;
+    const cadetId = req.params.id;
 
-    const sql = `UPDATE cadets SET 
-        rank=?, first_name=?, middle_name=?, last_name=?, suffix_name=?, 
-        student_id=?, email=?, contact_number=?, address=?, 
-        course=?, year_level=?, school_year=?, 
-        battalion=?, company=?, platoon=?, 
-        cadet_course=?, semester=?, status=? 
-        WHERE id=?`;
+    // Fetch current cadet info to check for name/username mismatch
+    const getUserSql = `
+        SELECT c.first_name, c.last_name, c.profile_completed, u.username as current_username, u.id as user_id
+        FROM cadets c
+        LEFT JOIN users u ON u.cadet_id = c.id
+        WHERE c.id = ?
+    `;
 
-    const params = [
-        rank, firstName, middleName, lastName, suffixName, 
-        finalStudentId, email, contactNumber, address, 
-        course, yearLevel, schoolYear, 
-        battalion, company, platoon, 
-        cadetCourse, semester, status, 
-        req.params.id
-    ];
+    db.get(getUserSql, [cadetId], (err, currentData) => {
+        if (err) return res.status(500).json({ message: err.message });
+        if (!currentData) return res.status(404).json({ message: 'Cadet not found' });
 
-    db.run(sql, params, (err) => {
-            if (err) return res.status(500).json({ message: err.message });
+        let finalUsername = username;
+        let shouldUpdatePassword = false;
+
+        // Smart Update Logic:
+        // If Admin updated the Name but left Username as the OLD Name, auto-update the Username.
+        const oldFullName = `${currentData.first_name} ${currentData.last_name}`;
+        const newFullName = `${firstName} ${lastName}`;
+        
+        // If the submitted username matches the old name (or old username), and the name has changed...
+        if (username === currentData.current_username && 
+            currentData.current_username === oldFullName && 
+            oldFullName !== newFullName) {
             
-            // Also update username in users table
-            if (username) {
-                db.run("UPDATE users SET username = ? WHERE cadet_id = ?", [username, req.params.id], (uErr) => {
-                    if (uErr) console.error("Error updating user username:", uErr);
-                });
-            }
-
-            res.json({ message: 'Cadet updated' });
+            finalUsername = newFullName;
         }
-    );
+
+        // If username is changing and profile is NOT completed, reset password to match new username
+        // This ensures the "Login with Full Name as Password" rule still works after Admin correction.
+        if (finalUsername !== currentData.current_username && !currentData.profile_completed) {
+            shouldUpdatePassword = true;
+        }
+
+        // Use finalUsername as studentId if studentId is not provided
+        const finalStudentId = studentId || finalUsername;
+
+        const sql = `UPDATE cadets SET 
+            rank=?, first_name=?, middle_name=?, last_name=?, suffix_name=?, 
+            student_id=?, email=?, contact_number=?, address=?, 
+            course=?, year_level=?, school_year=?, 
+            battalion=?, company=?, platoon=?, 
+            cadet_course=?, semester=?, status=? 
+            WHERE id=?`;
+
+        const params = [
+            rank, firstName, middleName, lastName, suffixName, 
+            finalStudentId, email, contactNumber, address, 
+            course, yearLevel, schoolYear, 
+            battalion, company, platoon, 
+            cadetCourse, semester, status, 
+            cadetId
+        ];
+
+        db.run(sql, params, async (err) => {
+                if (err) return res.status(500).json({ message: err.message });
+                
+                // Update User Table
+                if (finalUsername) {
+                    if (shouldUpdatePassword) {
+                        try {
+                            const hashedPassword = await bcrypt.hash(finalUsername, 10);
+                            db.run("UPDATE users SET username = ?, password = ? WHERE cadet_id = ?", 
+                                [finalUsername, hashedPassword, cadetId], (uErr) => {
+                                if (uErr) console.error("Error updating user credentials:", uErr);
+                            });
+                        } catch (hashErr) {
+                            console.error("Error hashing password:", hashErr);
+                        }
+                    } else {
+                        // Just update username
+                        db.run("UPDATE users SET username = ? WHERE cadet_id = ?", 
+                            [finalUsername, cadetId], (uErr) => {
+                            if (uErr) console.error("Error updating user username:", uErr);
+                        });
+
+                        // Self-Healing: Check if password matches username for incomplete profiles
+                        // This fixes cases where username was updated but password wasn't
+                        if (!currentData.profile_completed) {
+                            db.get("SELECT password FROM users WHERE cadet_id = ?", [cadetId], async (err, userRow) => {
+                                if (userRow) {
+                                    try {
+                                        const isMatch = await bcrypt.compare(finalUsername, userRow.password);
+                                        if (!isMatch) {
+                                            console.log(`Auto-fixing password for ${finalUsername}`);
+                                            const fixedPassword = await bcrypt.hash(finalUsername, 10);
+                                            db.run("UPDATE users SET password = ? WHERE cadet_id = ?", [fixedPassword, cadetId]);
+                                        }
+                                    } catch (e) {
+                                        console.error("Error verifying password:", e);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+
+                res.json({ message: 'Cadet updated', newUsername: finalUsername });
+            }
+        );
+    });
 });
 
 // Delete Cadet (Bulk)
