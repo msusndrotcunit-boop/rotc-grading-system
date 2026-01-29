@@ -17,12 +17,12 @@ const dbSettingsKey = 'cadet_list_source_url';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Keep-Alive Mechanism for Render Free Tier
+// Keep-Alive Mechanism for Render Free Tier & Supabase
 // Pings the server every 14 minutes to prevent sleep
 if (process.env.RENDER_EXTERNAL_URL) {
     const https = require('https');
     setInterval(() => {
-        https.get(`${process.env.RENDER_EXTERNAL_URL}/api/auth/login`, (resp) => {
+        https.get(`${process.env.RENDER_EXTERNAL_URL}/api/health`, (resp) => {
             console.log('Self-ping successful');
         }).on('error', (err) => {
             console.error('Self-ping failed:', err.message);
@@ -30,12 +30,24 @@ if (process.env.RENDER_EXTERNAL_URL) {
     }, 14 * 60 * 1000); // 14 minutes
 }
 
-console.log('Starting ROTC Grading System Server V2.3.15 (OneDrive Fix Active)...'); // Version bump for deployment trigger
+console.log('Starting ROTC Grading System Server V2.3.16 (Supabase Keep-Alive)...'); // Version bump for deployment trigger
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Health Check Route (Keeps Database Awake)
+app.get('/api/health', (req, res) => {
+    // Run a lightweight query to keep Supabase active
+    db.get('SELECT 1', [], (err, row) => {
+        if (err) {
+            console.error('Health check DB error:', err.message);
+            return res.status(500).send('Database Error');
+        }
+        res.send('OK');
+    });
+});
 
 // Routes
 app.use('/api/auth', authRoutes);
