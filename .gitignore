@@ -9,3 +9,5 @@ client/dist/
 .DS_Store
 logs/
 *.log
+package-lock.json
+**/package-lock.json
