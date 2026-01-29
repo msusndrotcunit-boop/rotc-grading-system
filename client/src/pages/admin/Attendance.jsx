@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar, Plus, Trash2, CheckCircle, XCircle, Clock, AlertTriangle, Save, Search, ChevronRight, Upload, FileText, Download } from 'lucide-react';
+import { Calendar, Plus, Trash2, CheckCircle, XCircle, Clock, AlertTriangle, Save, Search, ChevronRight, Upload, FileText, Download, ChevronUp, ChevronDown } from 'lucide-react';
 import ExcuseLetterManager from '../../components/ExcuseLetterManager';
 import { cacheData, getCachedData, cacheSingleton, getSingleton } from '../../utils/db';
 
@@ -13,6 +13,7 @@ const Attendance = () => {
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [createForm, setCreateForm] = useState({ date: '', title: '', description: '' });
+    const [isHeaderExpanded, setIsHeaderExpanded] = useState(true);
     
     // Import State
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -233,7 +234,7 @@ const Attendance = () => {
     return (
         <div className="h-full flex flex-col gap-4">
             <div className="flex justify-between items-center bg-white p-4 rounded shadow">
-                <h1 className="text-2xl font-bold text-gray-800">Attendance & Excuses</h1>
+                <h1 className="text-2xl font-bold text-gray-800">Attendance Management</h1>
                 <div className="flex space-x-2">
                     <div className="mr-4 flex space-x-2 border-r pr-4">
                         <button 
@@ -318,72 +319,101 @@ const Attendance = () => {
                     <div className={`w-full md:w-2/3 bg-white rounded shadow flex flex-col ${!selectedDay ? 'hidden md:flex' : ''}`}>
                         {selectedDay ? (
                             <>
-                        <div className="p-4 border-b bg-gray-50 rounded-t">
-                            <div className="flex flex-col md:flex-row justify-between items-start mb-4">
-                                <div>
+                        <div className="border-b bg-gray-50 rounded-t transition-all duration-300">
+                            <div className="p-4 flex flex-col md:flex-row justify-between items-start">
+                                <div className="w-full">
                                     <button onClick={() => setSelectedDay(null)} className="md:hidden text-gray-500 mb-2 flex items-center text-sm">
                                         <ChevronRight className="rotate-180 mr-1" size={16} /> Back to List
                                     </button>
-                                    <h2 className="text-2xl font-bold text-gray-800">{selectedDay.title}</h2>
-                                    <p className="text-gray-600 mt-1">{selectedDay.description || 'No description'}</p>
-                                </div>
-                                <div className="flex flex-col items-end gap-2 mt-2 md:mt-0">
-                                    <button 
-                                        onClick={() => setIsImportModalOpen(true)}
-                                        className="flex items-center text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
-                                    >
-                                        <Upload size={16} className="mr-2" /> Import Attendance
-                                    </button>
-                                    <div className="flex flex-wrap gap-2 text-sm">
-                                        <div className="flex items-center text-green-700 bg-green-50 px-2 py-1 rounded"><CheckCircle size={16} className="mr-1"/> Present: {stats.present || 0}</div>
-                                        <div className="flex items-center text-red-700 bg-red-50 px-2 py-1 rounded"><XCircle size={16} className="mr-1"/> Absent: {stats.absent || 0}</div>
-                                        <div className="flex items-center text-yellow-700 bg-yellow-50 px-2 py-1 rounded"><Clock size={16} className="mr-1"/> Late: {stats.late || 0}</div>
-                                        <div className="flex items-center text-blue-700 bg-blue-50 px-2 py-1 rounded"><AlertTriangle size={16} className="mr-1"/> Excused: {stats.excused || 0}</div>
+                                    <div className="flex items-center justify-between w-full">
+                                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                                            {selectedDay.title}
+                                            <button 
+                                                onClick={() => setIsHeaderExpanded(!isHeaderExpanded)}
+                                                className="p-1 hover:bg-gray-200 rounded-full text-gray-600 focus:outline-none"
+                                                title={isHeaderExpanded ? "Collapse Controls" : "Expand Controls"}
+                                            >
+                                                {isHeaderExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                            </button>
+                                        </h2>
+                                        {!isHeaderExpanded && (
+                                            <div className="text-sm text-gray-500 flex items-center gap-2">
+                                                <span className={`px-2 py-0.5 rounded ${attendanceType === 'cadet' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>
+                                                    {attendanceType === 'cadet' ? 'Cadets' : 'Staff'}
+                                                </span>
+                                                <span className="flex items-center text-green-700"><CheckCircle size={14} className="mr-1"/> {stats.present || 0}</span>
+                                                <span className="flex items-center text-red-700"><XCircle size={14} className="mr-1"/> {stats.absent || 0}</span>
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
-                            </div>
-                            
-                            {/* Filters */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                                <div className="md:col-span-3 flex justify-center mb-2">
-                                    <div className="bg-gray-200 rounded p-1 flex">
-                                        <button
-                                            className={`px-4 py-1 rounded text-sm font-semibold transition ${attendanceType === 'cadet' ? 'bg-white shadow text-green-800' : 'text-gray-600'}`}
-                                            onClick={() => setAttendanceType('cadet')}
-                                        >
-                                            Cadets
-                                        </button>
-                                        <button
-                                            className={`px-4 py-1 rounded text-sm font-semibold transition ${attendanceType === 'staff' ? 'bg-white shadow text-green-800' : 'text-gray-600'}`}
-                                            onClick={() => setAttendanceType('staff')}
-                                        >
-                                            Training Staff
-                                        </button>
-                                    </div>
-                                </div>
+                                    
+                                    {isHeaderExpanded && (
+                                        <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                            <p className="text-gray-600 mb-4">{selectedDay.description || 'No description'}</p>
+                                            
+                                            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-end gap-4">
+                                                {/* Left Side: Filters */}
+                                                <div className="w-full md:w-auto flex-1 space-y-4">
+                                                    <div className="flex bg-gray-200 rounded p-1 w-full md:w-fit overflow-x-auto">
+                                                        <button
+                                                            className={`px-4 py-1 rounded text-sm font-semibold transition whitespace-nowrap ${attendanceType === 'cadet' ? 'bg-white shadow text-green-800' : 'text-gray-600'}`}
+                                                            onClick={() => setAttendanceType('cadet')}
+                                                        >
+                                                            Cadets
+                                                        </button>
+                                                        <button
+                                                            className={`px-4 py-1 rounded text-sm font-semibold transition whitespace-nowrap ${attendanceType === 'staff' ? 'bg-white shadow text-green-800' : 'text-gray-600'}`}
+                                                            onClick={() => setAttendanceType('staff')}
+                                                        >
+                                                            Training Staff
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    <div className="flex flex-col md:flex-row flex-wrap gap-2">
+                                                        <input 
+                                                            placeholder="Search Name..." 
+                                                            className="border p-2 rounded text-sm w-full md:w-64"
+                                                            value={searchTerm}
+                                                            onChange={e => setSearchTerm(e.target.value)}
+                                                        />
+                                                        {attendanceType === 'cadet' && (
+                                                            <>
+                                                                <input 
+                                                                    placeholder="Filter Company" 
+                                                                    className="border p-2 rounded text-sm w-full md:w-32"
+                                                                    value={filterCompany}
+                                                                    onChange={e => setFilterCompany(e.target.value)}
+                                                                />
+                                                                <input 
+                                                                    placeholder="Filter Platoon" 
+                                                                    className="border p-2 rounded text-sm w-full md:w-32"
+                                                                    value={filterPlatoon}
+                                                                    onChange={e => setFilterPlatoon(e.target.value)}
+                                                                />
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
 
-                                <input 
-                                    placeholder="Search Name..." 
-                                    className="border p-2 rounded"
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                />
-                                {attendanceType === 'cadet' && (
-                                    <>
-                                        <input 
-                                            placeholder="Filter Company" 
-                                            className="border p-2 rounded"
-                                            value={filterCompany}
-                                            onChange={e => setFilterCompany(e.target.value)}
-                                        />
-                                        <input 
-                                            placeholder="Filter Platoon" 
-                                            className="border p-2 rounded"
-                                            value={filterPlatoon}
-                                            onChange={e => setFilterPlatoon(e.target.value)}
-                                        />
-                                    </>
-                                )}
+                                                {/* Right Side: Import & Stats */}
+                                                <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-auto">
+                                                    <button 
+                                                        onClick={() => setIsImportModalOpen(true)}
+                                                        className="flex items-center justify-center md:justify-start text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition w-full md:w-auto"
+                                                    >
+                                                        <Upload size={16} className="mr-2" /> Import Attendance
+                                                    </button>
+                                                    <div className="flex flex-wrap gap-2 text-sm justify-start md:justify-end w-full">
+                                                        <div className="flex items-center text-green-700 bg-green-50 px-2 py-1 rounded flex-1 md:flex-none justify-center"><CheckCircle size={16} className="mr-1"/> Present: {stats.present || 0}</div>
+                                                        <div className="flex items-center text-red-700 bg-red-50 px-2 py-1 rounded flex-1 md:flex-none justify-center"><XCircle size={16} className="mr-1"/> Absent: {stats.absent || 0}</div>
+                                                        <div className="flex items-center text-yellow-700 bg-yellow-50 px-2 py-1 rounded flex-1 md:flex-none justify-center"><Clock size={16} className="mr-1"/> Late: {stats.late || 0}</div>
+                                                        <div className="flex items-center text-blue-700 bg-blue-50 px-2 py-1 rounded flex-1 md:flex-none justify-center"><AlertTriangle size={16} className="mr-1"/> Excused: {stats.excused || 0}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
