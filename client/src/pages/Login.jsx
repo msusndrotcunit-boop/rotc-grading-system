@@ -42,26 +42,23 @@ const Login = () => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-gray-900">
-            <div className="bg-white/90 backdrop-blur-md p-8 rounded-lg shadow-2xl w-full max-w-md border border-green-700/30">
-                <div className="flex justify-center items-center space-x-4 mb-6">
-                    {/* 1002nd CDC Logo */}
+        <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-gray-900 overflow-hidden">
+            {/* Background Logo - Transparent in big sizes */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+                <img 
+                    src="/assets/rgms_logo.png" 
+                    alt="Background Logo" 
+                    className="w-[150vmin] h-[150vmin] object-contain" 
+                />
+            </div>
+
+            <div className="relative z-10 bg-white/90 backdrop-blur-md p-8 rounded-lg shadow-2xl w-full max-w-md border border-green-700/30">
+                <div className="flex justify-center items-center mb-6">
+                    {/* New RGMS Logo */}
                     <img 
-                        src="/assets/1002nd_cdc.png" 
-                        alt="1002nd CDC Logo" 
-                        className="w-20 h-20 object-contain"
-                    />
-                    {/* ROTC Unit Logo */}
-                    <img 
-                        src="/assets/msu_rotc_logo.png" 
-                        alt="ROTC Unit Logo" 
-                        className="w-20 h-20 object-contain"
-                    />
-                    {/* MSU-SND Seal */}
-                    <img 
-                        src="/assets/msu_snd_seal.png" 
-                        alt="MSU-SND Seal" 
-                        className="w-24 h-24 object-contain"
+                        src="/assets/rgms_logo.png" 
+                        alt="RGMS Logo" 
+                        className="w-32 h-32 object-contain drop-shadow-md"
                     />
                 </div>
                 <h2 className="text-2xl font-bold mb-6 text-center text-green-900">MSU-SND ROTC UNIT Grading Management</h2>
