@@ -4,10 +4,11 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 
 // Check for various common Postgres environment variable names
-const dbUrl = process.env.DATABASE_URL || 
+// Prioritize SUPABASE_URL if explicitly set by the user
+const dbUrl = process.env.SUPABASE_URL || 
+              process.env.DATABASE_URL || 
               process.env.DATABASE_URL_INTERNAL || 
               process.env.POSTGRES_URL || 
-              process.env.SUPABASE_URL ||
               process.env.PG_CONNECTION_STRING;
 
 const isPostgres = !!dbUrl;
