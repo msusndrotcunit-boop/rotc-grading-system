@@ -20,22 +20,32 @@ let db;
 
 // DB Adapter to unify SQLite and Postgres
 if (isPostgres) {
-    const connectionString = dbUrl.trim();
+    // const connectionString = dbUrl.trim();
     // console.log('Using DB URL:', connectionString.replace(/:[^:@]*@/, ':****@')); // Debug log
 
-    const pool = new Pool({
-        connectionString: connectionString,
+    // Parse connection string manually to ensure 'family: 4' is respected
+    // (Passing connectionString directly might override/ignore family option in some pg versions)
+    const { URL } = require('url');
+    const params = new URL(dbUrl.trim());
+
+    const poolConfig = {
+        user: params.username,
+        password: params.password,
+        host: params.hostname,
+        port: params.port,
+        database: params.pathname.split('/')[1],
         ssl: { rejectUnauthorized: false },
-        // Force IPv4 to avoid ENETUNREACH on networks without IPv6 support (fixes Supabase connection issues)
-        family: 4, 
-    });
+        family: 4, // Force IPv4 to resolve ENETUNREACH
+    };
+
+    const pool = new Pool(poolConfig);
 
     pool.on('error', (err, client) => {
         console.error('Unexpected error on idle client', err);
         // Don't exit, just log. Connection might recover.
     });
 
-    console.log('Connected to PostgreSQL database.');
+    console.log('Connected to PostgreSQL database (IPv4 forced).');
 
     db = {
         pool: pool, // Expose pool if needed
