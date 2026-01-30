@@ -23,12 +23,14 @@ const CadetHome = lazy(() => import('./pages/cadet/Home'));
 const CadetDashboard = lazy(() => import('./pages/cadet/Dashboard'));
 const CadetProfile = lazy(() => import('./pages/cadet/Profile'));
 const CadetAbout = lazy(() => import('./pages/cadet/About'));
+const CadetOnboarding = lazy(() => import('./pages/cadet/Onboarding'));
 
 // Staff Pages
 const StaffLayout = lazy(() => import('./layouts/StaffLayout'));
 const StaffHome = lazy(() => import('./pages/staff/Home'));
 const StaffDashboard = lazy(() => import('./pages/staff/Dashboard'));
 const StaffProfile = lazy(() => import('./pages/staff/Profile'));
+const StaffOnboarding = lazy(() => import('./pages/staff/Onboarding'));
 
 // Loading Fallback
 const LoadingSpinner = () => (
@@ -72,6 +74,8 @@ function App() {
                 <Route path="about" element={<CadetAbout />} />
                 <Route index element={<Navigate to="home" replace />} />
               </Route>
+              {/* Onboarding Route - outside Layout to avoid Sidebar */}
+              <Route path="/cadet/onboard" element={<CadetOnboarding />} />
             </Route>
 
             {/* Staff Routes */}
@@ -82,6 +86,8 @@ function App() {
                 <Route path="profile" element={<StaffProfile />} />
                 <Route index element={<Navigate to="home" replace />} />
               </Route>
+              {/* Onboarding Route - outside Layout to avoid Sidebar */}
+              <Route path="/staff/onboard" element={<StaffOnboarding />} />
             </Route>
 
             {/* Fallback */}

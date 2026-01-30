@@ -490,12 +490,51 @@ function seedAdmin() {
                     [username, hashedPassword, email], 
                     (err) => {
                         if (err) console.error('Error seeding admin:', err ? err.message : err);
-                        else console.log('Admin seeded successfully.');
+                        else {
+                            console.log('Admin seeded successfully.');
+                            seedDefaultStaff();
+                        }
                     }
                 );
             } catch (hashErr) {
                 console.error('Error hashing password:', hashErr);
             }
+        } else {
+            seedDefaultStaff();
+        }
+    });
+}
+
+function seedDefaultStaff() {
+    // Check if ANY training staff exists. If so, do not seed default staff to prevent security risk.
+    db.get("SELECT COUNT(*) as count FROM users WHERE role = 'training_staff'", [], async (err, row) => {
+        if (err) return console.error("Error checking staff count:", err);
+        
+        if (row && row.count === 0) {
+            const username = 'staff@2026';
+            const password = 'staff@2026';
+            const email = 'staff2026@default.com'; // Placeholder email
+
+            // Double check if the specific user exists (in case count is 0 but user is there? unlikely if role is training_staff)
+            // But if user exists with DIFFERENT role, we might have collision.
+            
+            db.get("SELECT * FROM users WHERE username = ?", [username], async (err, userRow) => {
+                if (!userRow) {
+                    console.log('No training staff found. Seeding default staff user...');
+                    try {
+                        const hashedPassword = await bcrypt.hash(password, 10);
+                        db.run(`INSERT INTO users (username, password, role, is_approved, email) VALUES (?, ?, 'training_staff', 1, ?)`, 
+                            [username, hashedPassword, email], 
+                            (err) => {
+                                if (err) console.error('Error seeding default staff:', err ? err.message : err);
+                                else console.log('Default staff seeded successfully (staff@2026).');
+                            }
+                        );
+                    } catch (e) {
+                        console.error('Error hashing staff password:', e);
+                    }
+                }
+            });
         }
     });
 }

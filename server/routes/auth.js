@@ -61,7 +61,7 @@ router.post('/login', (req, res) => {
         console.log('Login successful');
         const token = jwt.sign({ id: user.id, role: user.role, cadetId: user.cadet_id, staffId: user.staff_id }, SECRET_KEY, { expiresIn: '1h' });
         
-        res.json({ token, role: user.role, cadetId: user.cadet_id, staffId: user.staff_id });
+        res.json({ token, role: user.role, cadetId: user.cadet_id, staffId: user.staff_id, username: user.username });
     });
 });
 
@@ -97,7 +97,7 @@ router.post('/cadet-login', (req, res) => {
         // Generate Token
         const token = jwt.sign({ id: user.id, role: user.role, cadetId: user.cadet_id }, SECRET_KEY, { expiresIn: '24h' });
         
-        res.json({ token, role: user.role, cadetId: user.cadet_id });
+        res.json({ token, role: user.role, cadetId: user.cadet_id, username: user.username });
     });
 });
 

@@ -114,49 +114,8 @@ router.get('/profile', (req, res) => {
 });
 
 router.put('/profile', upload.single('profilePic'), (req, res) => {
-    const cadetId = req.user.cadetId;
-    if (!cadetId) return res.status(403).json({ message: 'Not a cadet account' });
-
-    const { 
-        firstName, middleName, lastName, suffixName,
-        email, contactNumber, address,
-        course, yearLevel, schoolYear,
-        battalion, company, platoon,
-        cadetCourse, semester
-    } = req.body;
-
-    let sql = `UPDATE cadets SET 
-        first_name=?, middle_name=?, last_name=?, suffix_name=?,
-        email=?, contact_number=?, address=?,
-        course=?, year_level=?, school_year=?,
-        battalion=?, company=?, platoon=?,
-        cadet_course=?, semester=?`;
-    
-    const params = [
-        firstName, middleName, lastName, suffixName,
-        email, contactNumber, address,
-        course, yearLevel, schoolYear,
-        battalion, company, platoon,
-        cadetCourse, semester
-    ];
-
-    if (req.file) {
-        sql += `, profile_pic=?`;
-        // Convert buffer to Base64 Data URI
-        const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-        params.push(base64Image);
-    }
-
-    sql += ` WHERE id=?`;
-    params.push(cadetId);
-
-    db.run(sql, params, (err) => {
-        if (err) return res.status(500).json({ message: err.message });
-        res.json({ 
-            message: 'Profile updated', 
-            profilePic: req.file ? `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}` : null 
-        });
-    });
+    // Profile editing is disabled for cadets. Only admins can update profiles.
+    return res.status(403).json({ message: 'Profile updates are disabled for cadets. Please contact an administrator.' });
 });
 
 router.get('/activities', (req, res) => {
@@ -164,6 +123,94 @@ router.get('/activities', (req, res) => {
         if (err) return res.status(500).json({ message: err.message });
         res.json(rows);
     });
+});
+
+router.post('/onboard', async (req, res) => {
+    // This endpoint creates a NEW cadet and NEW user account from the onboarding form
+    const { 
+        firstName, lastName, studentId, email, 
+        username, password, 
+        middleName, suffixName, contactNumber, address,
+        course, yearLevel, schoolYear,
+        battalion, company, platoon,
+        cadetCourse, semester
+    } = req.body;
+
+    if (!firstName || !lastName || !studentId || !email || !username || !password) {
+        return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    try {
+        // 1. Check if username or student ID or email already exists
+        const checkSql = `SELECT * FROM users WHERE username = ? OR email = ?`;
+        const checkCadetSql = `SELECT * FROM cadets WHERE student_id = ? OR email = ?`;
+        
+        // Helper for check
+        const checkExists = (sql, params) => {
+            return new Promise((resolve, reject) => {
+                db.get(sql, params, (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+        };
+
+        const existingUser = await checkExists(checkSql, [username, email]);
+        if (existingUser) {
+            return res.status(400).json({ message: 'Username or Email already taken' });
+        }
+
+        const existingCadet = await checkExists(checkCadetSql, [studentId, email]);
+        if (existingCadet) {
+            return res.status(400).json({ message: 'Student ID or Email already registered' });
+        }
+
+        // 2. Insert New Cadet
+        const insertCadetSql = `INSERT INTO cadets (
+            student_id, first_name, middle_name, last_name, suffix_name, 
+            email, contact_number, address, 
+            course, year_level, school_year, 
+            battalion, company, platoon, 
+            cadet_course, semester, status, rank
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+        const cadetParams = [
+            studentId, firstName, middleName || '', lastName, suffixName || '',
+            email, contactNumber || '', address || '',
+            course || '', yearLevel || '', schoolYear || '',
+            battalion || '', company || '', platoon || '',
+            cadetCourse || '', semester || '', 'Ongoing', 'CDT'
+        ];
+
+        // Wrap db.run for async
+        const runQuery = (sql, params) => {
+            return new Promise((resolve, reject) => {
+                db.run(sql, params, function(err) {
+                    if (err) reject(err);
+                    else resolve(this.lastID);
+                });
+            });
+        };
+
+        const newCadetId = await runQuery(insertCadetSql, cadetParams);
+
+        // 3. Insert New User
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const insertUserSql = `INSERT INTO users (
+            username, password, role, cadet_id, is_approved, email
+        ) VALUES (?, ?, 'cadet', ?, 1, ?)`;
+
+        await runQuery(insertUserSql, [username, hashedPassword, newCadetId, email]);
+        
+        // 4. Initialize Grades (optional but good practice)
+        await runQuery(`INSERT INTO grades (cadet_id) VALUES (?)`, [newCadetId]);
+
+        res.status(201).json({ message: 'Registration successful. Please login with your new credentials.' });
+
+    } catch (err) {
+        console.error('Onboarding Error:', err);
+        res.status(500).json({ message: 'Server error during registration: ' + err.message });
+    }
 });
 
 module.exports = router;

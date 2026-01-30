@@ -22,13 +22,25 @@ const Login = () => {
             let response;
             if (loginType === 'cadet') {
                 response = await axios.post('/api/auth/cadet-login', { identifier: formData.identifier });
-            } else if (loginType === 'staff') {
-                response = await axios.post('/api/auth/staff-login-no-pass', { identifier: formData.email });
             } else {
+                // Both Admin and Staff now use standard login
                 response = await axios.post('/api/auth/login', { username: formData.username, password: formData.password });
             }
 
             login(response.data);
+            
+            // Check for Default Cadet User for Onboarding
+            if (response.data.role === 'cadet' && response.data.username === 'cadet@2026') {
+                navigate('/cadet/onboard');
+                return;
+            }
+
+            // Check for Default Staff User for Onboarding
+            if (response.data.role === 'training_staff' && response.data.username === 'staff@2026') {
+                navigate('/staff/onboard');
+                return;
+            }
+
             if (response.data.role === 'admin') {
                 navigate('/admin/dashboard');
             } else if (response.data.role === 'training_staff') {
@@ -109,20 +121,30 @@ const Login = () => {
                     )}
 
                     {loginType === 'staff' && (
-                        <div className="mb-6">
-                            <label className="block text-gray-700 font-semibold mb-2">Email Address</label>
-                            <input
-                                type="email"
-                                name="email"
-                                placeholder="Enter your Email"
-                                className="w-full border-gray-300 rounded px-3 py-3 focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent bg-white shadow-inner"
-                                onChange={handleChange}
-                                required
-                            />
-                            <p className="text-xs text-gray-500 mt-2 italic">
-                                Note: Training Staff login. No password required.
-                            </p>
-                        </div>
+                        <>
+                            <div className="mb-4">
+                                <label className="block text-gray-700 font-semibold">Username</label>
+                                <input
+                                    type="text"
+                                    name="username"
+                                    placeholder="Username"
+                                    className="w-full border-gray-300 rounded px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent"
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                            <div className="mb-6">
+                                <label className="block text-gray-700 font-semibold">Password</label>
+                                <input
+                                    type="password"
+                                    name="password"
+                                    placeholder="Password"
+                                    className="w-full border-gray-300 rounded px-3 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent"
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </div>
+                        </>
                     )}
 
                     {loginType === 'admin' && (
