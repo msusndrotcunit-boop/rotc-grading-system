@@ -28,11 +28,19 @@ const TrainingStaffManagement = () => {
     const fetchStaff = async () => {
         try {
             const res = await axios.get('/api/staff');
-            setStaffList(res.data);
+            if (Array.isArray(res.data)) {
+                setStaffList(res.data);
+            } else {
+                console.error("API returned non-array:", res.data);
+                setStaffList([]);
+                alert("Error loading staff list: Invalid data format");
+            }
             setLoading(false);
         } catch (err) {
             console.error("Network request failed", err);
             setLoading(false);
+            setStaffList([]); // Ensure it's an array
+            // Don't alert immediately on load, maybe show UI error
         }
     };
 
