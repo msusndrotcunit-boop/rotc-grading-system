@@ -114,8 +114,59 @@ router.get('/profile', (req, res) => {
 });
 
 router.put('/profile', upload.single('profilePic'), (req, res) => {
-    // Profile editing is disabled for cadets. Only admins can update profiles.
-    return res.status(403).json({ message: 'Profile updates are disabled for cadets. Please contact an administrator.' });
+    const cadetId = req.user.cadetId;
+    if (!cadetId) return res.status(403).json({ message: 'Not a cadet account' });
+
+    // 1. Check if profile is already locked
+    db.get('SELECT profile_completed FROM cadets WHERE id = ?', [cadetId], (err, row) => {
+        if (err) return res.status(500).json({ message: err.message });
+        if (!row) return res.status(404).json({ message: 'Cadet not found' });
+        
+        if (row.profile_completed === 1) {
+            return res.status(403).json({ message: 'Profile is locked. Please contact an administrator to make changes.' });
+        }
+
+        // 2. Allow Update
+        const { 
+            firstName, middleName, lastName, suffixName, 
+            email, contactNumber, address, 
+            course, yearLevel, schoolYear, 
+            battalion, company, platoon, 
+            cadetCourse, semester 
+        } = req.body;
+
+        // Note: Rank, Student ID, Status are excluded from cadet self-update
+        const sql = `UPDATE cadets SET 
+            first_name = ?, middle_name = ?, last_name = ?, suffix_name = ?, 
+            email = ?, contact_number = ?, address = ?, 
+            course = ?, year_level = ?, school_year = ?, 
+            battalion = ?, company = ?, platoon = ?, 
+            cadet_course = ?, semester = ?,
+            profile_completed = 1
+            WHERE id = ?`;
+
+        const params = [
+            firstName, middleName || '', lastName, suffixName || '',
+            email, contactNumber || '', address || '',
+            course || '', yearLevel || '', schoolYear || '',
+            battalion || '', company || '', platoon || '',
+            cadetCourse || '', semester || '',
+            cadetId
+        ];
+
+        db.run(sql, params, function(err) {
+            if (err) return res.status(500).json({ message: err.message });
+            
+            // Also update email in users table if changed
+            if (email) {
+                db.run("UPDATE users SET email = ? WHERE cadet_id = ?", [email, cadetId], (uErr) => {
+                    if (uErr) console.error("Error syncing email to users table:", uErr);
+                });
+            }
+
+            res.json({ message: 'Profile updated and locked successfully.' });
+        });
+    });
 });
 
 router.get('/activities', (req, res) => {

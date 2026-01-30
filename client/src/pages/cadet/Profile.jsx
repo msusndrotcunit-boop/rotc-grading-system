@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { User, Moon, Sun, Lock } from 'lucide-react';
+import { User, Moon, Sun, Lock, Save, Edit } from 'lucide-react';
 import { cacheSingleton, getSingleton } from '../../utils/db';
 import { useAuth } from '../../context/AuthContext';
 
@@ -24,11 +24,15 @@ const Profile = () => {
         cadetCourse: 'MS1',
         semester: '',
         status: 'Ongoing',
-        studentId: ''
+        studentId: '',
+        profileCompleted: 0
     });
     const [preview, setPreview] = useState(null);
     const [loading, setLoading] = useState(true);
     const [darkMode, setDarkMode] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
     useEffect(() => {
         fetchProfile();
@@ -60,7 +64,8 @@ const Profile = () => {
             cadetCourse: data.cadet_course || 'MS1',
             semester: data.semester || '',
             status: data.status || 'Ongoing',
-            studentId: data.student_id || ''
+            studentId: data.student_id || '',
+            profileCompleted: data.profile_completed
         });
 
         if (data.profile_pic) {
@@ -94,6 +99,28 @@ const Profile = () => {
         }
     };
 
+    const handleChange = (e) => {
+        setProfile({ ...profile, [e.target.name]: e.target.value });
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        setError('');
+        setSuccess('');
+        try {
+            await axios.put('/api/cadet/profile', profile);
+            setSuccess('Profile updated and locked successfully.');
+            setProfile(prev => ({ ...prev, profileCompleted: 1 }));
+            // Update cache
+            // We need to fetch fresh data or update cache manually, let's fetch
+            fetchProfile();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to update profile');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const toggleDarkMode = () => {
         const newMode = !darkMode;
         setDarkMode(newMode);
@@ -104,6 +131,8 @@ const Profile = () => {
             document.documentElement.classList.remove('dark');
         }
     };
+
+    const isLocked = profile.profileCompleted === 1;
 
     if (loading) return <div className="p-8 text-center dark:text-white">Loading profile...</div>;
 
@@ -133,16 +162,16 @@ const Profile = () => {
                                     <User size={64} className="text-green-200" />
                                 )}
                             </div>
-                            <div className="absolute bottom-0 right-0 bg-gray-500 p-2 rounded-full border-2 border-white cursor-not-allowed" title="Editing Disabled">
-                                <Lock size={16} className="text-white" />
+                            <div className={`absolute bottom-0 right-0 p-2 rounded-full border-2 border-white ${isLocked ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-500 cursor-pointer'}`} title={isLocked ? "Editing Disabled" : "Edit Profile"}>
+                                {isLocked ? <Lock size={16} className="text-white" /> : <Edit size={16} className="text-white" />}
                             </div>
                         </div>
                         <div className="text-center md:text-left">
                             <h1 className="text-3xl font-bold">{profile.rank} {profile.firstName} {profile.lastName} {profile.suffixName}</h1>
                             <p className="text-green-200 text-lg mt-1">{profile.studentId}</p>
-                            <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-green-700/50 text-sm border border-green-600">
-                                <Lock size={14} className="mr-2" />
-                                <span>Profile Locked</span>
+                            <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-sm border ${isLocked ? 'bg-green-700/50 border-green-600' : 'bg-yellow-500/50 border-yellow-400'}`}>
+                                {isLocked ? <Lock size={14} className="mr-2" /> : <Edit size={14} className="mr-2" />}
+                                <span>{isLocked ? 'Profile Locked' : 'Profile Editable'}</span>
                             </div>
                         </div>
                     </div>
@@ -150,18 +179,44 @@ const Profile = () => {
 
                 {/* Profile Details */}
                 <div className="p-8">
-                     <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 mb-8">
-                        <div className="flex">
-                            <div className="flex-shrink-0">
-                                <Lock className="h-5 w-5 text-yellow-400" aria-hidden="true" />
-                            </div>
-                            <div className="ml-3">
-                                <p className="text-sm text-yellow-700 dark:text-yellow-200">
-                                    Your profile is locked. To update your information, please contact your Training Staff or Administrator.
-                                </p>
+                    {success && (
+                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                            {success}
+                        </div>
+                    )}
+                    {error && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                            {error}
+                        </div>
+                    )}
+
+                    {isLocked ? (
+                         <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 mb-8">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <Lock className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm text-yellow-700 dark:text-yellow-200">
+                                        Your profile is locked. To update your information, please contact your Training Staff or Administrator.
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-400 p-4 mb-8">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <Edit className="h-5 w-5 text-blue-400" aria-hidden="true" />
+                                </div>
+                                <div className="ml-3">
+                                    <p className="text-sm text-blue-700 dark:text-blue-200">
+                                        Please update your profile information below. Once you save, your profile will be <strong>locked</strong> and can only be changed by an administrator.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* Personal Info */}
@@ -171,10 +226,62 @@ const Profile = () => {
                                 Personal Information
                             </h3>
                             <div className="space-y-4">
-                                <ProfileField label="Full Name" value={`${profile.firstName} ${profile.middleName} ${profile.lastName} ${profile.suffixName}`} darkMode={darkMode} />
-                                <ProfileField label="Email Address" value={profile.email} darkMode={darkMode} />
-                                <ProfileField label="Contact Number" value={profile.contactNumber} darkMode={darkMode} />
-                                <ProfileField label="Address" value={profile.address} darkMode={darkMode} />
+                                <ProfileField 
+                                    label="First Name" 
+                                    name="firstName" 
+                                    value={profile.firstName} 
+                                    isLocked={isLocked} 
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
+                                <ProfileField 
+                                    label="Middle Name" 
+                                    name="middleName" 
+                                    value={profile.middleName} 
+                                    isLocked={isLocked} 
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
+                                <ProfileField 
+                                    label="Last Name" 
+                                    name="lastName" 
+                                    value={profile.lastName} 
+                                    isLocked={isLocked} 
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
+                                <ProfileField 
+                                    label="Suffix Name" 
+                                    name="suffixName" 
+                                    value={profile.suffixName} 
+                                    isLocked={isLocked} 
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
+                                <ProfileField 
+                                    label="Email Address" 
+                                    name="email" 
+                                    value={profile.email} 
+                                    isLocked={isLocked} 
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
+                                <ProfileField 
+                                    label="Contact Number" 
+                                    name="contactNumber" 
+                                    value={profile.contactNumber} 
+                                    isLocked={isLocked} 
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
+                                <ProfileField 
+                                    label="Address" 
+                                    name="address" 
+                                    value={profile.address} 
+                                    isLocked={isLocked} 
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
                             </div>
                         </div>
 
@@ -185,11 +292,46 @@ const Profile = () => {
                                 Military Unit Information
                             </h3>
                             <div className="space-y-4">
-                                <ProfileField label="Battalion" value={profile.battalion} darkMode={darkMode} />
-                                <ProfileField label="Company" value={profile.company} darkMode={darkMode} />
-                                <ProfileField label="Platoon" value={profile.platoon} darkMode={darkMode} />
-                                <ProfileField label="Cadet Course" value={profile.cadetCourse} darkMode={darkMode} />
-                                <ProfileField label="Status" value={profile.status} darkMode={darkMode} />
+                                <ProfileField 
+                                    label="Battalion" 
+                                    name="battalion" 
+                                    value={profile.battalion} 
+                                    isLocked={isLocked} 
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
+                                <ProfileField 
+                                    label="Company" 
+                                    name="company" 
+                                    value={profile.company} 
+                                    isLocked={isLocked} 
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
+                                <ProfileField 
+                                    label="Platoon" 
+                                    name="platoon" 
+                                    value={profile.platoon} 
+                                    isLocked={isLocked} 
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
+                                <ProfileField 
+                                    label="Cadet Course" 
+                                    name="cadetCourse" 
+                                    value={profile.cadetCourse} 
+                                    isLocked={isLocked} 
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
+                                <ProfileField 
+                                    label="Status" 
+                                    name="status" 
+                                    value={profile.status} 
+                                    isLocked={true} // Status always locked/admin managed
+                                    onChange={handleChange} 
+                                    darkMode={darkMode} 
+                                />
                             </div>
                         </div>
                     </div>
@@ -201,24 +343,76 @@ const Profile = () => {
                             Academic Information
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <ProfileField label="Course" value={profile.course} darkMode={darkMode} />
-                            <ProfileField label="Year Level" value={profile.yearLevel} darkMode={darkMode} />
-                            <ProfileField label="School Year" value={profile.schoolYear} darkMode={darkMode} />
-                            <ProfileField label="Semester" value={profile.semester} darkMode={darkMode} />
+                            <ProfileField 
+                                label="Course" 
+                                name="course" 
+                                value={profile.course} 
+                                isLocked={isLocked} 
+                                onChange={handleChange} 
+                                darkMode={darkMode} 
+                            />
+                            <ProfileField 
+                                label="Year Level" 
+                                name="yearLevel" 
+                                value={profile.yearLevel} 
+                                isLocked={isLocked} 
+                                onChange={handleChange} 
+                                darkMode={darkMode} 
+                            />
+                            <ProfileField 
+                                label="School Year" 
+                                name="schoolYear" 
+                                value={profile.schoolYear} 
+                                isLocked={isLocked} 
+                                onChange={handleChange} 
+                                darkMode={darkMode} 
+                            />
+                            <ProfileField 
+                                label="Semester" 
+                                name="semester" 
+                                value={profile.semester} 
+                                isLocked={isLocked} 
+                                onChange={handleChange} 
+                                darkMode={darkMode} 
+                            />
                         </div>
                     </div>
+
+                    {/* Save Button */}
+                    {!isLocked && (
+                        <div className="mt-8 flex justify-end">
+                            <button
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="flex items-center px-6 py-3 bg-green-700 hover:bg-green-800 text-white font-semibold rounded-lg shadow-md transition disabled:opacity-50"
+                            >
+                                <Save className="mr-2" size={20} />
+                                {saving ? 'Saving & Locking...' : 'Save & Lock Profile'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
     );
 };
 
-const ProfileField = ({ label, value, darkMode }) => (
+const ProfileField = ({ label, name, value, isLocked, onChange, darkMode }) => (
     <div>
         <label className={`block text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{label}</label>
-        <p className={`mt-1 font-medium ${darkMode ? 'text-gray-200' : 'text-gray-900'} bg-gray-50 dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600`}>
-            {value || 'N/A'}
-        </p>
+        {isLocked ? (
+            <p className={`mt-1 font-medium ${darkMode ? 'text-gray-200' : 'text-gray-900'} bg-gray-50 dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600`}>
+                {value || 'N/A'}
+            </p>
+        ) : (
+            <input 
+                type="text" 
+                name={name}
+                value={value || ''} 
+                onChange={onChange}
+                className={`mt-1 block w-full rounded-md shadow-sm p-2 border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'} focus:ring-green-500 focus:border-green-500`}
+            />
+        )}
     </div>
 );
 
