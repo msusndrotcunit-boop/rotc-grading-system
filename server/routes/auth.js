@@ -66,6 +66,8 @@ router.post('/login', (req, res) => {
         }
 
         console.log('Login successful');
+        const isDefaultPassword = password === 'staff@2026';
+
         const token = jwt.sign({ 
             id: user.id, 
             role: user.role, 
@@ -80,7 +82,8 @@ router.post('/login', (req, res) => {
             cadetId: user.cadet_id, 
             staffId: user.staff_id,
             profileCompleted: user.profile_completed,
-            username: user.username
+            username: user.username,
+            isDefaultPassword
         });
     });
 });

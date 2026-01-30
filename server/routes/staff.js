@@ -151,9 +151,9 @@ router.post('/', authenticateToken, isAdmin, async (req, res) => {
         const staffId = this.lastID;
 
         // 2. Create User Account
-        // Default password: 'staffpassword' (Should be changed)
-        const finalUsername = username || email || `${first_name.toLowerCase()}.${last_name.toLowerCase()}`;
-        const defaultPassword = 'staffpassword'; 
+        // Default password: 'staff@2026'
+        const finalUsername = username || first_name;
+        const defaultPassword = 'staff@2026'; 
         
         try {
             const hashedPassword = await bcrypt.hash(defaultPassword, 10);

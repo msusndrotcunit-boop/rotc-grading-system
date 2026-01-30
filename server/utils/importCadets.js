@@ -2,6 +2,7 @@ const xlsx = require('xlsx');
 const pdfParse = require('pdf-parse');
 const axios = require('axios');
 const db = require('../database');
+const bcrypt = require('bcryptjs');
 
 const getCadetByStudentId = (studentId) => {
     return new Promise((resolve, reject) => {
@@ -301,15 +302,15 @@ const insertTrainingStaff = (staff) => {
 };
 
 const upsertStaffUser = (staffId, email, customUsername, firstName, lastName) => {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         const generateUsername = () => {
             if (customUsername) return customUsername;
-            if (email) return email.split('@')[0];
-            return `${firstName.toLowerCase()}.${lastName.toLowerCase()}`.replace(/[^a-z0-9]/g, '');
+            return firstName; // Use First Name as username
         };
         
         const username = generateUsername();
-        const dummyHash = '$2a$10$DUMMYPASSWORDHASHDO_NOT_USE_OR_YOU_WILL_BE_HACKED';
+        // Use standard default password for staff
+        const dummyHash = await bcrypt.hash('staff@2026', 10);
         
         // Check if user exists for this staff
         db.get('SELECT * FROM users WHERE staff_id = ?', [staffId], (err, row) => {

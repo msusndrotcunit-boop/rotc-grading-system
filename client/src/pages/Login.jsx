@@ -59,11 +59,11 @@ const Login = () => {
                 password: formData.password 
             });
             
-            const { role } = response.data;
+            const { role, isDefaultPassword } = response.data;
             login(response.data);
 
             // Check for Default Staff User for Onboarding
-            if (role === 'training_staff' && response.data.username === 'staff@2026') {
+            if (role === 'training_staff' && isDefaultPassword) {
                 navigate('/staff/onboard');
                 return;
             }

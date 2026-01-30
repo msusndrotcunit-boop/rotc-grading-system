@@ -533,7 +533,7 @@ function seedDefaultStaff() {
         if (err) return console.error("Error checking staff count:", err);
         
         if (row && row.count === 0) {
-            const username = 'staff@2026';
+            const username = 'staff';
             const password = 'staff@2026';
             const email = 'staff2026@default.com'; // Placeholder email
 
