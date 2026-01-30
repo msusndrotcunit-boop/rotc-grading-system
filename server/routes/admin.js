@@ -1052,15 +1052,12 @@ router.get('/analytics', (req, res) => {
                     const safeTotalDays = totalTrainingDays > 0 ? totalTrainingDays : 1;
                     const attendanceScore = (cadet.attendance_present / safeTotalDays) * 30;
                     
-                    // Aptitude: Base 100 + Merits - Demerits (Capped at 100)
-                    // "The cadets have already 100 merit points... ceiling value will be up to 100 points only"
-                    // "Merit points minus demerit points then the result will be multiply by 30%"
-                    let rawAptitude = 100 + (cadet.merit_points || 0) - (cadet.demerit_points || 0);
-                    if (rawAptitude > 100) rawAptitude = 100;
-                    // Ensure it doesn't go below 0 (implied, though not explicitly stated, negative grades are weird)
-                    if (rawAptitude < 0) rawAptitude = 0; 
-                    
-                    const aptitudeScore = rawAptitude * 0.3;
+                    // Aptitude: (Merit - Demerit) * 30%
+                    // Constraint: Merit capped at 100.
+                    // Formula: (min(Merit, 100) - Demerit) * 0.3
+                    const cappedMerit = Math.min(cadet.merit_points || 0, 100);
+                    const rawAptitude = cappedMerit - (cadet.demerit_points || 0);
+                    const aptitudeScore = Math.max(0, rawAptitude * 0.3);
 
                     // Subject Proficiency: (Sum / Total Items) * 40%
                     // Assuming 300 total items for now
@@ -1235,11 +1232,11 @@ router.get('/cadets', (req, res) => {
                 const safeTotalDays = totalTrainingDays > 0 ? totalTrainingDays : 1;
                 const attendanceScore = (cadet.attendance_present / safeTotalDays) * 30; // 30%
                 
-                // Aptitude: Base 100 + Merits - Demerits (Capped at 100, Floor 0)
-                let rawAptitude = 100 + (cadet.merit_points || 0) - (cadet.demerit_points || 0);
-                if (rawAptitude > 100) rawAptitude = 100;
-                if (rawAptitude < 0) rawAptitude = 0;
-                const aptitudeScore = rawAptitude * 0.3;
+                // Aptitude: (Merit - Demerit) * 30%
+                // Constraint: Merit capped at 100.
+                const cappedMerit = Math.min(cadet.merit_points || 0, 100);
+                const rawAptitude = cappedMerit - (cadet.demerit_points || 0);
+                const aptitudeScore = Math.max(0, rawAptitude * 0.3);
 
                 // Subject: (Sum / 300) * 40%
                 const subjectScore = ((cadet.prelim_score + cadet.midterm_score + cadet.final_score) / 300) * 40; // 40%

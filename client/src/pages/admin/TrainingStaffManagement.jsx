@@ -21,6 +21,10 @@ const TrainingStaffManagement = () => {
     });
     const [editForm, setEditForm] = useState({});
 
+    // Password Reset State
+    const [isPasswordResetModalOpen, setIsPasswordResetModalOpen] = useState(false);
+    const [passwordResetForm, setPasswordResetForm] = useState({ newPassword: '', confirmPassword: '' });
+
     useEffect(() => {
         fetchStaff();
     }, []);
@@ -33,14 +37,13 @@ const TrainingStaffManagement = () => {
             } else {
                 console.error("API returned non-array:", res.data);
                 setStaffList([]);
-                alert("Error loading staff list: Invalid data format");
+                // alert("Error loading staff list: Invalid data format");
             }
             setLoading(false);
         } catch (err) {
             console.error("Network request failed", err);
             setLoading(false);
-            setStaffList([]); // Ensure it's an array
-            // Don't alert immediately on load, maybe show UI error
+            setStaffList([]); 
         }
     };
 
@@ -102,7 +105,8 @@ const TrainingStaffManagement = () => {
             suffix_name: staff.suffix_name || '',
             email: staff.email || '',
             contact_number: staff.contact_number || '',
-            role: staff.role || 'Instructor'
+            role: staff.role || 'Instructor',
+            username: staff.username || ''
         });
         setIsEditModalOpen(true);
     };
