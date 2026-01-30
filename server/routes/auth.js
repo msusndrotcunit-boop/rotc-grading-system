@@ -122,16 +122,13 @@ router.post('/cadet-login', (req, res) => {
             profileCompleted: user.profile_completed 
         }, SECRET_KEY, { expiresIn: '24h' });
         
-<<<<<<< HEAD
-        res.json({ token, role: user.role, cadetId: user.cadet_id, username: user.username });
-=======
         res.json({ 
             token, 
             role: user.role, 
             cadetId: user.cadet_id, 
+            username: user.username,
             profileCompleted: user.profile_completed 
         });
->>>>>>> db12a25087328a012d9548d89b92c2e8eb837731
     });
 });
 
