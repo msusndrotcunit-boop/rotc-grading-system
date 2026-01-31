@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Pencil, Trash2, X, FileDown, Upload, Plus, RefreshCw, PieChart as PieChartIcon, BarChart3, Key } from 'lucide-react';
+import { Pencil, Trash2, X, FileDown, Upload, Plus, RefreshCw, PieChart as PieChartIcon, BarChart3, Key, Search } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { cacheData, getCachedData } from '../../utils/db';
@@ -16,6 +16,7 @@ import {
 const Cadets = () => {
     const [cadets, setCadets] = useState([]);
     const [selectedCadets, setSelectedCadets] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [currentCadet, setCurrentCadet] = useState(null);
@@ -52,6 +53,22 @@ const Cadets = () => {
 
     // Get unique companies
     const companies = [...new Set(cadets.map(c => c.company).filter(Boolean))];
+
+    // Filter cadets
+    const filteredCadets = cadets.filter(cadet => {
+        if (!searchTerm) return true;
+        const searchLower = searchTerm.toLowerCase();
+        const fullName = `${cadet.first_name} ${cadet.last_name}`.toLowerCase();
+        return (
+            (cadet.rank && cadet.rank.toLowerCase().includes(searchLower)) ||
+            (cadet.first_name && cadet.first_name.toLowerCase().includes(searchLower)) ||
+            (cadet.last_name && cadet.last_name.toLowerCase().includes(searchLower)) ||
+            fullName.includes(searchLower) ||
+            (cadet.student_id && cadet.student_id.toLowerCase().includes(searchLower)) ||
+            (cadet.username && cadet.username.toLowerCase().includes(searchLower)) ||
+            (cadet.company && cadet.company.toLowerCase().includes(searchLower))
+        );
+    });
 
     // Analytics Data
     const getAnalyticsData = () => {
@@ -209,24 +226,6 @@ const Cadets = () => {
         }
     };
 
-    const handleDeleteAll = async () => {
-        if (!confirm('DANGER: This will delete ALL cadet data, including grades, attendance, and logs.\n\nAre you absolutely sure?')) return;
-        
-        const confirmation = prompt('To confirm, type "DELETE ALL" in the box below:');
-        if (confirmation !== "DELETE ALL") {
-            alert("Deletion cancelled. You must type 'DELETE ALL' to confirm.");
-            return;
-        }
-
-        try {
-            await axios.delete('/api/admin/cadets/all');
-            alert('All cadet data has been deleted.');
-            fetchCadets();
-        } catch (err) {
-            console.error(err);
-            alert('Failed to delete data: ' + (err.response?.data?.message || err.message));
-        }
-    };
 
     const handleBulkDelete = async () => {
         if (!confirm(`Delete ${selectedCadets.length} cadets? This action cannot be undone.`)) return;
@@ -431,7 +430,7 @@ const Cadets = () => {
                     <thead className="bg-gray-100 sticky top-0 z-10">
                         <tr className="border-b shadow-sm">
                             <th className="p-4 w-10 bg-gray-100">
-                                <input type="checkbox" onChange={handleSelectAll} checked={selectedCadets.length === cadets.length && cadets.length > 0} />
+                                <input type="checkbox" onChange={handleSelectAll} checked={selectedCadets.length === filteredCadets.length && filteredCadets.length > 0} />
                             </th>
                             <th className="p-4 bg-gray-100">Name & Rank</th>
                             <th className="p-4 bg-gray-100">Username</th>
@@ -441,7 +440,7 @@ const Cadets = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {cadets.map(cadet => (
+                        {filteredCadets.map(cadet => (
                             <tr key={cadet.id} className="border-b hover:bg-gray-50">
                                 <td className="p-4">
                                     <input 
