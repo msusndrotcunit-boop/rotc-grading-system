@@ -375,7 +375,9 @@ const parsePdfBuffer = async (buffer) => {
     const text = pdfData.text;
     const lines = text.split('\n');
     
+    console.log(`Parsing PDF with ${lines.length} lines`);
     for (let i = 0; i < lines.length; i++) {
+        try {
         let line = lines[i].trim();
         if (!line) continue;
 
@@ -484,149 +486,12 @@ const parsePdfBuffer = async (buffer) => {
             continue;
         }
 
-        // Match standard Student ID formats: YYYY-NNNNNN or just NNNNNN (at least 5 digits)
-        const idMatch = line.match(/\b\d{4}[-]?\d{3,}\b/) || line.match(/\b\d{5,}\b/);
-        let studentId = '';
-        
-        if (idMatch) {
-            studentId = idMatch[0];
+        // --- STRICT MODE: Only Rank/Name lines are imported ---
+        // Fallback logic for non-rank lines is disabled to prevent errors and ensure data quality.
+        continue;
+        } catch (err) {
+            console.error(`Error processing line ${i}:`, err);
         }
-
-        // Heuristic: Valid line if it has ID OR (Comma for name AND length > 10) OR Course pattern
-        const hasComma = line.includes(',');
-        // Extract Cadet Course / Unit (MS42, MS32, NST002, etc.)
-        const courseMatch = line.match(/\b(MS\s?\d{1,2}|NSTP\s?\d|NST\s?\d{3}|CWTS|LTS)\b/i);
-        
-        let cleanLineCheck = line.replace(/^[\d.)\-\s]+/, ''); 
-        
-        // Remove trailing numbers (e.g. "Juan Dela Cruz 1.25" or "Juan Dela Cruz 90")
-        cleanLineCheck = cleanLineCheck.replace(/\s+[\d.]+$/, '');
-
-        const hasDigits = /\d/.test(cleanLineCheck);
-        const wordCount = cleanLineCheck.trim().split(/\s+/).length;
-        
-        const blacklist = [
-            'department', 'university', 'college', 'school', 'list', 'section', 'page', 'schedule', 'report', 
-            'officially', 'enrolled', 'student', 'cadet', 'cor', 'printed', 'republic', 'philippines',
-            'msu', 'iit', 'snd', 'rotc', 'nstp', 'cwts', 'lts', 'office', 'headquarters', 'battalion', 
-            'company', 'platoon', 'army', 'navy', 'air', 'force', 'command', 'commandant', 'commander', 
-            'officer', 'staff', 'sergeant', 'corporal', 'lieutenant', 'colonel', 'major', 'captain', 
-            'general', 'approved', 'noted', 'prepared', 'certified', 'verified', 'submitted', 'received', 
-            'copy', 'furnished', 'subject', 'to', 'from', 'date', 'time', 'venue', 'agenda', 'minutes', 
-            'attendance', 'total', 'grand', 'male', 'female', 'remarks', 'status', 'legend', 'passed', 
-            'failed', 'dropped', 'incomplete', 'withdrawn', 'grade', 'unit', 'credit', 'instructor', 
-            'professor', 'lecturer', 'dean', 'director', 'registrar', 'campus', 'city', 'province', 
-            'region', 'telephone', 'fax', 'mobile', 'email', 'website', 'http', 'https', 'www', 'by:',
-            'bachelor', 'technology', 'science', 'arts', 'education'
-        ];
-        const lowerLine = cleanLineCheck.toLowerCase();
-        const isBlacklisted = blacklist.some(w => lowerLine.includes(w));
-
-        // Heuristic for Name only: 
-        // 1. Check if line starts with a number (Strong indicator for class list)
-        const startsWithNumber = /^\s*\d+[.)\s]/.test(line);
-
-        // 2. Name validation
-        let likelyName = false;
-        if (startsWithNumber) {
-             likelyName = wordCount >= 2 && wordCount < 8 && cleanLineCheck.trim().length > 5 && !isBlacklisted && !cleanLineCheck.includes('...');
-        } else {
-             likelyName = wordCount >= 2 && wordCount < 6 && cleanLineCheck.trim().length > 5 && !isBlacklisted && !cleanLineCheck.includes('...') && !hasDigits;
-        } 
-
-        // Skip lines that are too short or likely headers/footers if no ID/Course
-        if (!studentId && !courseMatch && !hasComma && !likelyName) {
-            continue;
-        }
-
-        // Extract Email
-        const emailMatch = line.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-        const email = emailMatch ? emailMatch[0] : '';
-
-        const cadetCourse = courseMatch ? courseMatch[0].toUpperCase().replace(/\s/g, '') : '';
-
-        // Extract Academic Program (Course) e.g. Bachelor of Science in...
-        const academicMatch = line.match(/\b(Bachelor of [A-Za-z\s]+|BS\s?[A-Za-z\s]+|Associate in [A-Za-z\s]+|Diploma in [A-Za-z\s]+)\b/i);
-        const academicProgram = academicMatch ? academicMatch[0].trim() : '';
-
-        // Clean the line
-        let cleanLine = line;
-        if (studentId) cleanLine = cleanLine.replace(studentId, '');
-        if (email) cleanLine = cleanLine.replace(email, '');
-        if (courseMatch) cleanLine = cleanLine.replace(courseMatch[0], '');
-        if (academicMatch) cleanLine = cleanLine.replace(academicMatch[0], '');
-        
-        cleanLine = cleanLine
-            .replace(/Officially enrolled/i, '')
-            .replace(/No COR printed/i, '')
-            .replace(/Old Student/i, '')
-            .replace(/New Student/i, '')
-            .trim();
-        
-        // Clean up leading non-name chars
-        cleanLine = cleanLine.replace(/^[\d.)\-\s]+/, '');
-        
-        // Clean up trailing non-name chars (digits, dots) - STRICT cleaning for name extraction
-        cleanLine = cleanLine.replace(/[\d\s.]+$/, '');
-
-        let lastName = '';
-        let firstName = '';
-        let middleName = '';
-        let rank = 'Cdt'; // Default
-        
-        if (cleanLine.includes(',')) {
-            // Format: Last Name, First Name Middle Name
-            const parts = cleanLine.split(',');
-            lastName = parts[0].trim();
-            const rest = parts.slice(1).join(' ').trim();
-            
-            // Try to extract Middle Name from the end of the Rest part
-            const nameParts = rest.split(/\s+/);
-            if (nameParts.length > 1) {
-                const lastToken = nameParts[nameParts.length - 1];
-                if (['Jr.', 'Sr.', 'III', 'IV', 'V'].includes(lastToken)) {
-                    firstName = rest;
-                } else {
-                    // Assume last word is Middle Name
-                    middleName = nameParts.pop(); 
-                    firstName = nameParts.join(' ');
-                }
-            } else {
-                firstName = rest;
-            }
-        } else {
-            // Format: First Name Middle Name Last Name (Assumed if no comma)
-            const parts = cleanLine.split(/\s+/);
-            if (parts.length > 1) {
-                lastName = parts.pop(); // Last token is Last Name
-                
-                // Check if last name is a suffix (Jr, Sr, III)
-                if (['Jr.', 'Jr', 'Sr.', 'Sr', 'III', 'IV', 'V'].includes(lastName)) {
-                     const suffix = lastName;
-                     if (parts.length > 0) lastName = parts.pop(); 
-                     lastName = lastName + ' ' + suffix;
-                }
-
-                firstName = parts.join(' ');
-            } else {
-                lastName = cleanLine;
-                firstName = 'Unknown';
-            }
-        }
-        
-        // If we found essentially nothing, skip
-        if ((!lastName || lastName === 'Unknown') && !firstName) continue;
-
-        data.push({
-            'Student ID': studentId,
-            'Email': email,
-            'Last Name': lastName,
-            'First Name': firstName,
-            'Middle Name': middleName,
-            'Rank': rank,
-            'Cadet Course': cadetCourse,
-            'Course': academicProgram
-        });
     }
 
     if (data.length === 0) {
