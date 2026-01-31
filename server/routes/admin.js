@@ -417,6 +417,12 @@ const parsePdfBuffer = async (buffer) => {
                 }
             }
             
+            // STRICT SANITIZATION
+            const sanitizeName = (str) => str ? str.replace(/[^a-zA-Z\s.-]/g, '').trim() : '';
+            lastName = sanitizeName(lastName);
+            firstName = sanitizeName(firstName);
+            middleName = sanitizeName(middleName);
+            
             data.push({
                 'Student ID': '', 
                 'Rank': rank,
@@ -472,6 +478,17 @@ const parsePdfBuffer = async (buffer) => {
                      firstName = 'Unknown';
                  }
              }
+
+             // STRICT SANITIZATION: Remove any numbers or symbols that might be phone numbers/emails/addresses
+             // Keep only letters, spaces, dots, and hyphens
+             const sanitizeName = (str) => str ? str.replace(/[^a-zA-Z\s.-]/g, '').trim() : '';
+             
+             lastName = sanitizeName(lastName);
+             firstName = sanitizeName(firstName);
+             middleName = sanitizeName(middleName);
+
+             // Skip if name became empty after sanitization
+             if (!lastName && !firstName) continue;
 
              data.push({
                 'Student ID': '', 
@@ -1643,6 +1660,52 @@ router.delete('/merit-logs/:id', (req, res) => {
             });
         });
     });
+});
+
+// --- Delete All Cadets ---
+router.delete('/cadets/all', async (req, res) => {
+    try {
+        console.log('Initiating Delete All Cadets...');
+
+        // 1. Delete all cadets (Cascade should handle users, grades, attendance, logs)
+        await new Promise((resolve, reject) => {
+            db.run('DELETE FROM cadets', function(err) {
+                if (err) reject(err);
+                else {
+                    console.log(`Deleted ${this.changes} cadets.`);
+                    resolve();
+                }
+            });
+        });
+
+        // 2. Safety Cleanup: Delete any orphan users with role='cadet'
+        await new Promise((resolve, reject) => {
+             db.run("DELETE FROM users WHERE role = 'cadet'", function(err) {
+                if (err) reject(err);
+                else {
+                    console.log(`Deleted ${this.changes} orphan cadet users.`);
+                    resolve();
+                }
+            });
+        });
+        
+        // 3. Safety Cleanup: Ensure related tables are empty (if cascade failed or wasn't active)
+        const tables = ['grades', 'attendance_records', 'merit_demerit_logs', 'excuse_letters'];
+        for (const table of tables) {
+             await new Promise((resolve, reject) => {
+                db.run(`DELETE FROM ${table}`, (err) => {
+                    // We just log errors here, as these might already be empty
+                     if (err) console.log(`Cleanup note for ${table}:`, err.message);
+                    resolve();
+                });
+            });
+        }
+
+        res.json({ message: 'All cadet data and related records have been permanently deleted.' });
+    } catch (err) {
+        console.error('Delete All Cadets Error:', err);
+        res.status(500).json({ message: 'Failed to delete all cadets: ' + err.message });
+    }
 });
 
 module.exports = router;

@@ -209,6 +209,25 @@ const Cadets = () => {
         }
     };
 
+    const handleDeleteAll = async () => {
+        if (!confirm('DANGER: This will delete ALL cadet data, including grades, attendance, and logs.\n\nAre you absolutely sure?')) return;
+        
+        const confirmation = prompt('To confirm, type "DELETE ALL" in the box below:');
+        if (confirmation !== "DELETE ALL") {
+            alert("Deletion cancelled. You must type 'DELETE ALL' to confirm.");
+            return;
+        }
+
+        try {
+            await axios.delete('/api/admin/cadets/all');
+            alert('All cadet data has been deleted.');
+            fetchCadets();
+        } catch (err) {
+            console.error(err);
+            alert('Failed to delete data: ' + (err.response?.data?.message || err.message));
+        }
+    };
+
     const handleBulkDelete = async () => {
         if (!confirm(`Delete ${selectedCadets.length} cadets? This action cannot be undone.`)) return;
         try {
@@ -386,6 +405,14 @@ const Cadets = () => {
                     >
                         <FileDown size={18} />
                         <span>Export PDF</span>
+                    </button>
+                    <button 
+                        onClick={handleDeleteAll}
+                        className="flex-1 md:flex-none bg-red-800 text-white px-4 py-2 rounded flex items-center justify-center space-x-2 hover:bg-red-900"
+                        title="Delete ALL Cadets"
+                    >
+                        <Trash2 size={18} />
+                        <span>Delete All</span>
                     </button>
                     {selectedCadets.length > 0 && (
                         <button 
@@ -568,7 +595,7 @@ const Cadets = () => {
                                 <div className="text-xs text-gray-500 mt-2 space-y-1">
                                     <p><strong>Supported formats:</strong> .xlsx, .xls, .csv, .pdf</p>
                                     <p><strong>Excel/CSV:</strong> Required: "First Name", "Last Name". Optional: "Student ID", "Username", "Email".</p>
-                                    <p><strong>PDF:</strong> Requires lines with "Student ID" (e.g., 2023-1234) and "Name". Email is optional.</p>
+                                    <p><strong>PDF:</strong> Only imports <strong>Rank</strong> and <strong>Name</strong> (e.g., "CDT Lastname, Firstname"). Other data is ignored.</p>
                                     <p><strong>Note:</strong> If Student ID is missing in Excel, it will be auto-generated. Login uses Username (defaults to Student ID) or Email.</p>
                                 </div>
                             </div>
