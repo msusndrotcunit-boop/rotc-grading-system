@@ -13,6 +13,43 @@ const axios = require('axios');
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+// Levenshtein distance for fuzzy matching
+const levenshteinDistance = (a, b) => {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+
+    const matrix = [];
+
+    // increment along the first column of each row
+    for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+    }
+
+    // increment each column in the first row
+    for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+    }
+
+    // Fill in the rest of the matrix
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1, // substitution
+                    Math.min(
+                        matrix[i][j - 1] + 1, // insertion
+                        matrix[i - 1][j] + 1 // deletion
+                    )
+                );
+            }
+        }
+    }
+
+    return matrix[b.length][a.length];
+};
+
 // --- Training Days ---
 
 // Get all training days
@@ -210,14 +247,6 @@ const extractFromRaw = (line) => {
     const rawLine = line.trim();
     if (!rawLine) return row;
 
-    // Regex for Student ID (e.g., 2023-12345, 1234567)
-    const idMatch = rawLine.match(/(\d{4}-\d{4,6}|\d{6,10})/); 
-    if (idMatch) row['Student ID'] = idMatch[0];
-
-    // Regex for Email
-    const emailMatch = rawLine.match(/[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}/);
-    if (emailMatch) row['Email'] = emailMatch[0];
-
     // Status keywords
     const lowerLine = rawLine.toLowerCase();
     if (lowerLine.includes('present')) row['Status'] = 'present';
@@ -226,19 +255,21 @@ const extractFromRaw = (line) => {
     else if (lowerLine.includes('excused')) row['Status'] = 'excused';
 
     // Name Extraction Strategy:
-    // If we haven't found ID or Email, assume the whole line might be a name
-    // But exclude lines that are just short noise
-    if (!row['Student ID'] && !row['Email'] && rawLine.length > 5) {
-        // Remove status keywords from the potential name
-        let cleanName = rawLine
-            .replace(/present|absent|late|excused/gi, '')
-            .replace(/[0-9]/g, '') // Remove numbers (often dates or scores)
-            .replace(/[^\w\s,.-]/g, '') // Remove special chars except , . -
-            .trim();
-        
-        if (cleanName.length > 3) {
-            row['Name'] = cleanName;
-        }
+    // User requested to prioritize Name and Status and ignore others (ID/Email).
+    // We strip out status keywords, numbers (IDs/Dates), emails, and special chars to isolate the name.
+    let cleanName = rawLine
+        .replace(/present|absent|late|excused/gi, '') // Remove status
+        .replace(/[0-9]/g, '') // Remove numbers (IDs, dates) - STRICTLY obeying "Others are ignored"
+        .replace(/[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}/g, '') // Remove emails
+        .replace(/[^\w\s,.-]/g, '') // Remove special chars except , . -
+        .replace(/\s+/g, ' ') // Collapse multiple spaces
+        .trim();
+    
+    // Remove leading numbering/punctuation like "1.", "."
+    cleanName = cleanName.replace(/^[.,-\s]+/, ''); 
+
+    if (cleanName.length > 2) {
+        row['Name'] = cleanName;
     }
 
     return row;
@@ -274,8 +305,51 @@ const getCadetByName = (firstName, lastName) => {
     });
 };
 
-const findCadet = async (row) => {
-    // 1. Try Student ID
+const findCadet = async (row, allCadets = []) => {
+    // 1. Try Name (Fuzzy Match - Priority as per user request)
+    // We check this first or fall back to it. Since we stripped IDs in extractFromRaw, this is the main path.
+    const nameToMatch = row['Name'];
+    
+    if (nameToMatch && allCadets.length > 0) {
+        let bestMatch = null;
+        let minDistance = Infinity;
+        // Allow fuzzy match. Threshold depends on name length, but 4-5 is usually safe for full names.
+        // For very short names, we might want to be stricter.
+        const threshold = 5; 
+
+        for (const cadet of allCadets) {
+            // Construct possible name formats from DB
+            const fullNameNormal = `${cadet.first_name} ${cadet.last_name}`;
+            const fullNameReverse = `${cadet.last_name} ${cadet.first_name}`;
+            const fullNameComma = `${cadet.last_name}, ${cadet.first_name}`;
+            const fullNameCommaReverse = `${cadet.first_name}, ${cadet.last_name}`; // Less common but possible
+
+            const target = nameToMatch.toLowerCase();
+            
+            const dist1 = levenshteinDistance(target, fullNameNormal.toLowerCase());
+            const dist2 = levenshteinDistance(target, fullNameReverse.toLowerCase());
+            const dist3 = levenshteinDistance(target, fullNameComma.toLowerCase());
+            const dist4 = levenshteinDistance(target, fullNameCommaReverse.toLowerCase());
+
+            const currentMin = Math.min(dist1, dist2, dist3, dist4);
+
+            if (currentMin < minDistance) {
+                minDistance = currentMin;
+                bestMatch = cadet;
+            }
+        }
+
+        if (minDistance <= threshold) {
+            // Also optionally check if the best match is "close enough" relatively?
+            // e.g. if name is "Junjie", distance 5 is too much.
+            // But for "Junjie Bahian", distance 2 is fine.
+            if (minDistance < (nameToMatch.length * 0.4)) { // 40% difference allowed max
+                 return bestMatch;
+            }
+        }
+    }
+
+    // 2. Try Student ID (Fallback if extractFromRaw was modified to allow it, or manually passed)
     const studentId = row['Student ID'] || row['ID'] || row['Student Number'] || row['student_id'];
     if (studentId) {
         try {
@@ -284,7 +358,7 @@ const findCadet = async (row) => {
         } catch (e) {}
     }
 
-    // 2. Try Email
+    // 3. Try Email (Fallback)
     const email = row['Email'] || row['email'] || row['EMAIL'];
     if (email) {
         try {
@@ -293,7 +367,7 @@ const findCadet = async (row) => {
         } catch (e) {}
     }
 
-    // 3. Try Name
+    // 4. Try Exact Name (Fallback)
     let lastName = row['Last Name'] || row['last_name'] || row['Surname'];
     let firstName = row['First Name'] || row['first_name'];
     const fullName = row['Name'] || row['name'] || row['Student Name'] || row['Student'];
@@ -359,6 +433,19 @@ const processAttendanceData = async (data, dayId) => {
     let failCount = 0;
     const errors = [];
 
+    // Pre-fetch all cadets for fuzzy matching
+    let allCadets = [];
+    try {
+        allCadets = await new Promise((resolve, reject) => {
+            db.all('SELECT id, first_name, last_name FROM cadets', [], (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows);
+            });
+        });
+    } catch (e) {
+        console.error("Error fetching cadets for fuzzy match:", e);
+    }
+
     for (const row of data) {
         let status = (row['Status'] || row['status'] || '').toLowerCase();
         
@@ -379,7 +466,8 @@ const processAttendanceData = async (data, dayId) => {
         const remarks = row['Remarks'] || row['remarks'] || '';
 
         try {
-            const cadet = await findCadet(row);
+            // Pass allCadets to findCadet
+            const cadet = await findCadet(row, allCadets);
             
             if (cadet) {
                 await upsertAttendance(dayId, cadet.id, status, remarks);

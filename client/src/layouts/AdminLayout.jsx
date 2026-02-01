@@ -55,22 +55,21 @@ const AdminLayout = () => {
         navigate('/login');
     };
 
-    const toggleNotifications = async () => {
-        if (!showNotifications) {
-            setShowNotifications(true);
-            try {
-                const token = localStorage.getItem('token');
-                await axios.put('/api/admin/notifications/read-all', {}, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setUnreadCount(0);
-                setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
-            } catch (err) {
-                console.error(err);
-            }
-        } else {
-            setShowNotifications(false);
+    const markAllAsRead = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put('/api/admin/notifications/read-all', {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setUnreadCount(0);
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+        } catch (err) {
+            console.error(err);
         }
+    };
+
+    const toggleNotifications = () => {
+        setShowNotifications(!showNotifications);
     };
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -169,7 +168,14 @@ const AdminLayout = () => {
                         {showNotifications && (
                             <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg overflow-hidden z-20 border border-gray-200">
                                 <div className="py-2">
-                                    <div className="px-4 py-2 border-b border-gray-100 font-semibold text-gray-700">Notifications</div>
+                                    <div className="px-4 py-2 border-b border-gray-100 font-semibold text-gray-700 flex justify-between items-center">
+                                        <span>Notifications</span>
+                                        {unreadCount > 0 && (
+                                            <button onClick={markAllAsRead} className="text-xs text-blue-600 hover:text-blue-800 font-normal">
+                                                Mark all read
+                                            </button>
+                                        )}
+                                    </div>
                                     {notifications.length === 0 ? (
                                         <div className="px-4 py-4 text-gray-500 text-sm text-center">No notifications</div>
                                     ) : (
