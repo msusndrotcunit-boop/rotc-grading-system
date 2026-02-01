@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Pencil, X, FileDown, Upload, Plus, RefreshCw, Search } from 'lucide-react';
+import { Pencil, X, FileDown, Upload, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { cacheData, getCachedData } from '../../utils/db';
@@ -406,6 +406,14 @@ const Cadets = () => {
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-gray-100 sticky top-0 z-10">
                         <tr className="border-b shadow-sm">
+                            <th className="p-4 bg-gray-100 text-center w-12">
+                                <input
+                                    type="checkbox"
+                                    onChange={handleSelectAll}
+                                    checked={filteredCadets.length > 0 && selectedCadets.length === filteredCadets.length}
+                                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                            </th>
                             <th className="p-4 bg-gray-100">Name & Rank</th>
                             <th className="p-4 bg-gray-100">Username</th>
                             <th className="p-4 text-center bg-gray-100">Unit (Coy/Plt)</th>
