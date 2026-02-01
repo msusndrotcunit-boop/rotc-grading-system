@@ -58,11 +58,12 @@ router.get('/records/:dayId', authenticateToken, isAdmin, (req, res) => {
             c.rank,
             c.company,
             c.platoon,
-            ar.status, 
-            ar.remarks
+            MAX(ar.status) as status, 
+            MAX(ar.remarks) as remarks
         FROM cadets c
+        JOIN users u ON c.id = u.cadet_id
         LEFT JOIN attendance_records ar ON c.id = ar.cadet_id AND ar.training_day_id = ?
-        WHERE 1=1
+        WHERE u.is_approved = 1
     `;
     const params = [dayId];
 
@@ -75,7 +76,7 @@ router.get('/records/:dayId', authenticateToken, isAdmin, (req, res) => {
         params.push(platoon);
     }
 
-    sql += ' ORDER BY c.last_name ASC';
+    sql += ' GROUP BY c.id ORDER BY c.last_name ASC';
 
     db.all(sql, params, (err, rows) => {
         if (err) return res.status(500).json({ message: err.message });
