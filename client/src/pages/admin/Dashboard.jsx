@@ -15,6 +15,7 @@ const Dashboard = () => {
     const [stats, setStats] = useState({ totalCadets: 0, totalActivities: 0 });
     const [analytics, setAnalytics] = useState({ attendance: [], grades: [] });
     const [cadets, setCadets] = useState([]);
+    const [onlineCount, setOnlineCount] = useState(0);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -43,10 +44,11 @@ const Dashboard = () => {
                     }
                 } catch {}
                 
-                const [cadetsRes, activitiesRes, analyticsRes] = await Promise.allSettled([
+                const [cadetsRes, activitiesRes, analyticsRes, onlineRes] = await Promise.allSettled([
                     axios.get('/api/admin/cadets'),
                     axios.get('/api/cadet/activities'),
-                    axios.get('/api/admin/analytics')
+                    axios.get('/api/admin/analytics'),
+                    axios.get('/api/admin/online-users')
                 ]);
 
                 if (cadetsRes.status === 'fulfilled') {
@@ -57,6 +59,9 @@ const Dashboard = () => {
                 if (activitiesRes.status === 'fulfilled') {
                     setStats(s => ({ ...s, totalActivities: activitiesRes.value.data.length }));
                     await cacheData('activities', activitiesRes.value.data);
+                }
+                if (onlineRes.status === 'fulfilled') {
+                    setOnlineCount(onlineRes.value.data.count);
                 }
 
                 if (analyticsRes.status === 'fulfilled') {
