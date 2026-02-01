@@ -1,24 +1,4 @@
 require('dotenv').config({ override: true });
-const dns = require('dns');
-
-// Monkey-patch dns.lookup to force IPv4 globally
-// This resolves 'connect ENETUNREACH' errors on IPv6-enabled networks
-const originalLookup = dns.lookup;
-dns.lookup = (hostname, options, callback) => {
-    if (typeof options === 'function') {
-        callback = options;
-        options = {};
-    }
-    if (!options) options = {};
-    options.family = 4; // Force IPv4
-    return originalLookup(hostname, options, callback);
-};
-
-// Force IPv4 for DNS resolution (fallback)
-if (dns.setDefaultResultOrder) {
-    dns.setDefaultResultOrder('ipv4first');
-}
-
 // Force redeploy trigger
 const express = require('express');
 const compression = require('compression');
@@ -38,12 +18,12 @@ const dbSettingsKey = 'cadet_list_source_url';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Keep-Alive Mechanism for Render Free Tier & Supabase
+// Keep-Alive Mechanism for Render Free Tier
 // Pings the server every 14 minutes to prevent sleep
 if (process.env.RENDER_EXTERNAL_URL) {
     const https = require('https');
     setInterval(() => {
-        https.get(`${process.env.RENDER_EXTERNAL_URL}/api/health`, (resp) => {
+        https.get(`${process.env.RENDER_EXTERNAL_URL}/api/auth/login`, (resp) => {
             console.log('Self-ping successful');
         }).on('error', (err) => {
             console.error('Self-ping failed:', err.message);
@@ -51,25 +31,13 @@ if (process.env.RENDER_EXTERNAL_URL) {
     }, 14 * 60 * 1000); // 14 minutes
 }
 
-console.log('Starting ROTC Grading System Server V2.3.16 (Supabase Keep-Alive)...'); // Version bump for deployment trigger
+console.log('Starting ROTC Grading System Server V2.4.0 (Firebase Removed, Compression Active)...'); // Version bump for deployment trigger
 
 // Middleware
 app.use(compression());
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Health Check Route (Keeps Database Awake)
-app.get('/api/health', (req, res) => {
-    // Run a lightweight query to keep Supabase active
-    db.get('SELECT 1', [], (err, row) => {
-        if (err) {
-            console.error('Health check DB error:', err.message);
-            return res.status(500).send('Database Error');
-        }
-        res.send('OK');
-    });
-});
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -132,6 +100,6 @@ if (enableAutoSync && syncIntervalMinutes > 0) {
     }, syncIntervalMinutes * 60 * 1000);
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT} (IPv4 Explicit)`);
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });

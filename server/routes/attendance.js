@@ -61,9 +61,8 @@ router.get('/records/:dayId', authenticateToken, isAdmin, (req, res) => {
             ar.status, 
             ar.remarks
         FROM cadets c
-        JOIN users u ON u.cadet_id = c.id
         LEFT JOIN attendance_records ar ON c.id = ar.cadet_id AND ar.training_day_id = ?
-        WHERE u.is_approved = 1
+        WHERE 1=1
     `;
     const params = [dayId];
 
@@ -360,7 +359,22 @@ const processAttendanceData = async (data, dayId) => {
     const errors = [];
 
     for (const row of data) {
-        const status = (row['Status'] || row['status'] || 'present').toLowerCase();
+        let status = (row['Status'] || row['status'] || '').toLowerCase();
+        
+        // If not found in specific column, search entire row values for keywords
+        if (!status) {
+            const rowValues = Object.values(row).map(v => String(v).toLowerCase());
+            for (const val of rowValues) {
+                if (val.includes('present')) { status = 'present'; break; }
+                if (val.includes('absent')) { status = 'absent'; break; }
+                if (val.includes('late')) { status = 'late'; break; }
+                if (val.includes('excused')) { status = 'excused'; break; }
+            }
+        }
+
+        // Default to 'present' if still not found
+        if (!status) status = 'present';
+
         const remarks = row['Remarks'] || row['remarks'] || '';
 
         try {

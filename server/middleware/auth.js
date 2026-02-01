@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 
-const SECRET_KEY = process.env.JWT_SECRET || 'rotc_super_secret_key'; // Fallback for dev, but env var preferred
+const SECRET_KEY = 'rotc_super_secret_key'; // In prod, use env var
 
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];

@@ -1,23 +1,14 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, Suspense } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, User, LogOut, Menu, X, Info, Home as HomeIcon } from 'lucide-react';
 import clsx from 'clsx';
 
 const CadetLayout = () => {
-    const { user, logout } = useAuth();
+    const { logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-    // Redirect to profile if profile is not completed
-    useEffect(() => {
-        if (user && user.role === 'cadet' && !user.profileCompleted) {
-            if (location.pathname !== '/cadet/profile') {
-                navigate('/cadet/profile');
-            }
-        }
-    }, [user, location.pathname, navigate]);
 
     const handleLogout = () => {
         logout();
@@ -25,9 +16,6 @@ const CadetLayout = () => {
     };
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-    
-    // Check if profile is incomplete to restrict navigation
-    const isProfileIncomplete = user && user.role === 'cadet' && !user.profileCompleted;
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden">
@@ -51,32 +39,28 @@ const CadetLayout = () => {
                     </button>
                 </div>
                 <nav className="flex-1 p-4 space-y-2">
-                    {!isProfileIncomplete && (
-                        <>
-                            <Link
-                                to="/cadet/home"
-                                onClick={() => setIsSidebarOpen(false)}
-                                className={clsx(
-                                    "flex items-center space-x-3 p-3 rounded transition",
-                                    location.pathname === '/cadet/home' ? "bg-green-700 text-white" : "text-green-200 hover:bg-green-800 hover:text-white"
-                                )}
-                            >
-                                <HomeIcon size={20} />
-                                <span>Home</span>
-                            </Link>
-                            <Link
-                                to="/cadet/dashboard"
-                                onClick={() => setIsSidebarOpen(false)}
-                                className={clsx(
-                                    "flex items-center space-x-3 p-3 rounded transition",
-                                    location.pathname === '/cadet/dashboard' ? "bg-green-700 text-white" : "text-green-200 hover:bg-green-800 hover:text-white"
-                                )}
-                            >
-                                <LayoutDashboard size={20} />
-                                <span>My Portal</span>
-                            </Link>
-                        </>
-                    )}
+                    <Link
+                        to="/cadet/home"
+                        onClick={() => setIsSidebarOpen(false)}
+                        className={clsx(
+                            "flex items-center space-x-3 p-3 rounded transition",
+                            location.pathname === '/cadet/home' ? "bg-green-700 text-white" : "text-green-200 hover:bg-green-800 hover:text-white"
+                        )}
+                    >
+                        <HomeIcon size={20} />
+                        <span>Home</span>
+                    </Link>
+                    <Link
+                        to="/cadet/dashboard"
+                        onClick={() => setIsSidebarOpen(false)}
+                        className={clsx(
+                            "flex items-center space-x-3 p-3 rounded transition",
+                            location.pathname === '/cadet/dashboard' ? "bg-green-700 text-white" : "text-green-200 hover:bg-green-800 hover:text-white"
+                        )}
+                    >
+                        <LayoutDashboard size={20} />
+                        <span>My Portal</span>
+                    </Link>
                     <Link
                         to="/cadet/profile"
                         onClick={() => setIsSidebarOpen(false)}
@@ -88,19 +72,17 @@ const CadetLayout = () => {
                         <User size={20} />
                         <span>My Profile</span>
                     </Link>
-                    {!isProfileIncomplete && (
-                        <Link
-                            to="/cadet/about"
-                            onClick={() => setIsSidebarOpen(false)}
-                            className={clsx(
-                                "flex items-center space-x-3 p-3 rounded transition",
-                                location.pathname === '/cadet/about' ? "bg-green-700 text-white" : "text-green-200 hover:bg-green-800 hover:text-white"
-                            )}
-                        >
-                            <Info size={20} />
-                            <span>About</span>
-                        </Link>
-                    )}
+                    <Link
+                        to="/cadet/about"
+                        onClick={() => setIsSidebarOpen(false)}
+                        className={clsx(
+                            "flex items-center space-x-3 p-3 rounded transition",
+                            location.pathname === '/cadet/about' ? "bg-green-700 text-white" : "text-green-200 hover:bg-green-800 hover:text-white"
+                        )}
+                    >
+                        <Info size={20} />
+                        <span>About</span>
+                    </Link>
                 </nav>
                 <div className="p-4 border-t border-green-800">
                     <button

@@ -1,28 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Pencil, Trash2, X, FileDown, Upload, Plus, RefreshCw, PieChart as PieChartIcon, BarChart3, Key, Search } from 'lucide-react';
+import { Pencil, X, FileDown, Upload, Plus, RefreshCw, Search } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { cacheData, getCachedData } from '../../utils/db';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
-
-import { 
-    CADET_COURSE_OPTIONS,
-    COMPANY_OPTIONS
-} from '../../constants/options';
 
 const Cadets = () => {
     const [cadets, setCadets] = useState([]);
-    const [selectedCadets, setSelectedCadets] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [currentCadet, setCurrentCadet] = useState(null);
-    const [showAnalytics, setShowAnalytics] = useState(false);
-    const [isPasswordResetModalOpen, setIsPasswordResetModalOpen] = useState(false);
-    const [passwordResetForm, setPasswordResetForm] = useState({ newPassword: '', confirmPassword: '' });
 
     // Import State
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -53,62 +41,6 @@ const Cadets = () => {
 
     // Get unique companies
     const companies = [...new Set(cadets.map(c => c.company).filter(Boolean))];
-
-    // Filter cadets
-    const filteredCadets = cadets.filter(cadet => {
-        if (!searchTerm) return true;
-        const searchLower = searchTerm.toLowerCase();
-        const fullName = `${cadet.first_name} ${cadet.last_name}`.toLowerCase();
-        return (
-            (cadet.rank && cadet.rank.toLowerCase().includes(searchLower)) ||
-            (cadet.first_name && cadet.first_name.toLowerCase().includes(searchLower)) ||
-            (cadet.last_name && cadet.last_name.toLowerCase().includes(searchLower)) ||
-            fullName.includes(searchLower) ||
-            (cadet.student_id && cadet.student_id.toLowerCase().includes(searchLower)) ||
-            (cadet.username && cadet.username.toLowerCase().includes(searchLower)) ||
-            (cadet.company && cadet.company.toLowerCase().includes(searchLower))
-        );
-    });
-
-    // Analytics Data
-    const getAnalyticsData = () => {
-        // By Company
-        const companyCount = {};
-        cadets.forEach(c => {
-            const company = c.company || 'Unknown';
-            companyCount[company] = (companyCount[company] || 0) + 1;
-        });
-        const companyData = Object.keys(companyCount).map(key => ({
-            name: key,
-            count: companyCount[key]
-        }));
-
-        // By Rank
-        const rankCount = {};
-        cadets.forEach(c => {
-            const rank = c.rank || 'Unknown';
-            rankCount[rank] = (rankCount[rank] || 0) + 1;
-        });
-        const rankData = Object.keys(rankCount).map(key => ({
-            name: key,
-            count: rankCount[key]
-        }));
-
-        // By Status
-        const statusCount = {};
-        cadets.forEach(c => {
-            const status = c.status || 'Unknown';
-            statusCount[status] = (statusCount[status] || 0) + 1;
-        });
-        const statusData = Object.keys(statusCount).map(key => ({
-            name: key,
-            value: statusCount[key]
-        }));
-
-        return { companyData, rankData, statusData };
-    };
-
-    const { companyData, rankData, statusData } = getAnalyticsData();
 
     useEffect(() => {
         fetchCadets();
@@ -161,22 +93,6 @@ const Cadets = () => {
         }
     };
 
-    const handleSelectAll = (e) => {
-        if (e.target.checked) {
-            setSelectedCadets(cadets.map(c => c.id));
-        } else {
-            setSelectedCadets([]);
-        }
-    };
-
-    const handleSelectOne = (id) => {
-        if (selectedCadets.includes(id)) {
-            setSelectedCadets(selectedCadets.filter(cid => cid !== id));
-        } else {
-            setSelectedCadets([...selectedCadets, id]);
-        }
-    };
-
     const handleExportPDF = async () => {
         try {
             const jsPDF = (await import('jspdf')).default;
@@ -189,19 +105,19 @@ const Cadets = () => {
             doc.setFontSize(11);
             doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
 
-            const tableColumn = ["Rank", "Name", "Username", "Unit", "Email", "Phone"];
+            const tableColumn = ["Rank", "Name", "Student ID", "Unit", "Email", "Phone"];
             
             const tableRows = [];
 
-            const filteredCadets = exportOptions.company === 'All' 
+            const filteredForExport = exportOptions.company === 'All' 
                 ? cadets 
                 : cadets.filter(c => c.company === exportOptions.company);
 
-            filteredCadets.forEach(cadet => {
+            filteredForExport.forEach(cadet => {
                 const cadetData = [
                     cadet.rank,
                     `${cadet.last_name}, ${cadet.first_name}`,
-                    cadet.username || cadet.student_id,
+                    cadet.student_id,
                     `${cadet.company || '-'}/${cadet.platoon || '-'}`,
                     cadet.email || '-',
                     cadet.contact_number || '-'
@@ -209,7 +125,6 @@ const Cadets = () => {
                 tableRows.push(cadetData);
             });
 
-            // Use explicit autoTable function
             autoTable(doc, {
                 head: [tableColumn],
                 body: tableRows,
@@ -226,18 +141,6 @@ const Cadets = () => {
         }
     };
 
-
-    const handleBulkDelete = async () => {
-        if (!confirm(`Delete ${selectedCadets.length} cadets? This action cannot be undone.`)) return;
-        try {
-            await axios.post('/api/admin/cadets/delete', { ids: selectedCadets });
-            setCadets(cadets.filter(c => !selectedCadets.includes(c.id)));
-            setSelectedCadets([]);
-        } catch (err) {
-            alert('Error deleting cadets');
-        }
-    };
-
     const openEditModal = (cadet) => {
         setCurrentCadet(cadet);
         setEditForm({
@@ -246,7 +149,7 @@ const Cadets = () => {
             middleName: cadet.middle_name || '',
             lastName: cadet.last_name || '',
             suffixName: cadet.suffix_name || '',
-            username: cadet.username || cadet.student_id || '',
+            studentId: cadet.student_id || '',
             email: cadet.email || '',
             contactNumber: cadet.contact_number || '',
             address: cadet.address || '',
@@ -274,31 +177,6 @@ const Cadets = () => {
         }
     };
 
-    const openPasswordResetModal = (cadet) => {
-        setCurrentCadet(cadet);
-        setPasswordResetForm({ newPassword: '', confirmPassword: '' });
-        setIsPasswordResetModalOpen(true);
-    };
-
-    const handlePasswordResetSubmit = async (e) => {
-        e.preventDefault();
-        if (passwordResetForm.newPassword !== passwordResetForm.confirmPassword) {
-            alert('Passwords do not match');
-            return;
-        }
-        try {
-            await axios.post('/api/admin/reset-password', {
-                type: 'cadet',
-                id: currentCadet.id,
-                newPassword: passwordResetForm.newPassword
-            });
-            alert('Password reset successfully');
-            setIsPasswordResetModalOpen(false);
-        } catch (err) {
-            alert('Failed to reset password: ' + (err.response?.data?.message || err.message));
-        }
-    };
-
     const handleImport = async (e) => {
         e.preventDefault();
         if (!importFile && !importUrl) return;
@@ -319,7 +197,6 @@ const Cadets = () => {
             
             let message = res.data.message || 'Import successful!';
             
-            // Check for errors in the response
             if (res.data.errors && res.data.errors.length > 0) {
                 message += '\n\nErrors encountered:\n' + res.data.errors.join('\n');
             }
@@ -366,27 +243,40 @@ const Cadets = () => {
         }
     };
 
+    const filteredCadets = cadets.filter(cadet => {
+        if (!searchTerm) return true;
+        const lowerTerm = searchTerm.toLowerCase();
+        return (
+            (cadet.first_name && cadet.first_name.toLowerCase().includes(lowerTerm)) ||
+            (cadet.last_name && cadet.last_name.toLowerCase().includes(lowerTerm)) ||
+            (cadet.student_id && cadet.student_id.toLowerCase().includes(lowerTerm)) ||
+            (cadet.rank && cadet.rank.toLowerCase().includes(lowerTerm)) ||
+            (cadet.company && cadet.company.toLowerCase().includes(lowerTerm))
+        );
+    });
+
     if (loading) return <div className="text-center p-10">Loading...</div>;
 
     return (
         <div>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h2 className="text-2xl font-bold">Cadet Management</h2>
-                <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto items-center">
-                    <div className="relative w-full md:w-64">
+                <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2 w-full md:w-auto">
+                    {/* Search Bar */}
+                    <div className="relative flex-1 md:flex-none">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search size={18} className="text-gray-400" />
                         </div>
                         <input
                             type="text"
-                            placeholder="Search..."
-                            className="pl-10 pr-4 py-2 border rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Search cadets..."
+                            className="pl-10 pr-4 py-2 border rounded w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <div className="flex space-x-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-                            {linkedUrl && (
+
+                    {linkedUrl && (
                         <button 
                             onClick={handleSync}
                             disabled={syncing}
@@ -402,7 +292,7 @@ const Cadets = () => {
                         className="flex-1 md:flex-none bg-blue-600 text-white px-4 py-2 rounded flex items-center justify-center space-x-2 hover:bg-blue-700"
                     >
                         <Upload size={18} />
-                        <span>Import List</span>
+                        <span>Import</span>
                     </button>
                     <button 
                         onClick={() => setIsAddModalOpen(true)}
@@ -416,18 +306,8 @@ const Cadets = () => {
                         className="flex-1 md:flex-none bg-green-700 text-white px-4 py-2 rounded flex items-center justify-center space-x-2 hover:bg-green-800"
                     >
                         <FileDown size={18} />
-                        <span>Export PDF</span>
+                        <span>PDF</span>
                     </button>
-                    {selectedCadets.length > 0 && (
-                        <button 
-                            onClick={handleBulkDelete}
-                            className="flex-1 md:flex-none bg-red-600 text-white px-4 py-2 rounded flex items-center justify-center space-x-2 hover:bg-red-700"
-                        >
-                            <Trash2 size={18} />
-                            <span>Delete ({selectedCadets.length})</span>
-                        </button>
-                    )}
-                    </div>
                 </div>
             </div>
 
@@ -435,9 +315,6 @@ const Cadets = () => {
                 <table className="w-full text-left border-collapse">
                     <thead className="bg-gray-100 sticky top-0 z-10">
                         <tr className="border-b shadow-sm">
-                            <th className="p-4 w-10 bg-gray-100">
-                                <input type="checkbox" onChange={handleSelectAll} checked={selectedCadets.length === filteredCadets.length && filteredCadets.length > 0} />
-                            </th>
                             <th className="p-4 bg-gray-100">Name & Rank</th>
                             <th className="p-4 bg-gray-100">Username</th>
                             <th className="p-4 text-center bg-gray-100">Unit (Coy/Plt)</th>
@@ -446,51 +323,43 @@ const Cadets = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredCadets.map(cadet => (
-                            <tr key={cadet.id} className="border-b hover:bg-gray-50">
-                                <td className="p-4">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={selectedCadets.includes(cadet.id)}
-                                        onChange={() => handleSelectOne(cadet.id)}
-                                    />
-                                </td>
-                                <td className="p-4">
-                                    <div className="font-medium">
-                                        <span className="font-bold text-blue-900 mr-1">{cadet.rank}</span>
-                                        {cadet.last_name}, {cadet.first_name}
-                                    </div>
-                                    <div className="text-xs text-gray-500">{cadet.email}</div>
-                                </td>
-                                <td className="p-4">{cadet.username || cadet.student_id}</td>
-                                <td className="p-4 text-center">{cadet.company || '-'}/{cadet.platoon || '-'}</td>
-                                <td className="p-4 text-center">
-                                    <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                                        cadet.status === 'Ongoing' ? 'bg-blue-100 text-blue-800' :
-                                        cadet.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                                        'bg-gray-100 text-gray-800'
-                                    }`}>
-                                        {cadet.status}
-                                    </span>
-                                </td>
-                                <td className="p-4 text-right space-x-2">
-                                    <button 
-                                        onClick={() => openEditModal(cadet)}
-                                        className="text-gray-600 hover:bg-gray-50 p-2 rounded"
-                                        title="Edit Info"
-                                    >
-                                        <Pencil size={18} />
-                                    </button>
-                                    <button 
-                                        onClick={() => openPasswordResetModal(cadet)}
-                                        className="text-yellow-600 hover:bg-yellow-50 p-2 rounded"
-                                        title="Reset Password"
-                                    >
-                                        <Key size={18} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                        {filteredCadets.length === 0 ? (
+                             <tr>
+                                <td colSpan="5" className="p-4 text-center text-gray-500">No cadets found.</td>
+                             </tr>
+                        ) : (
+                            filteredCadets.map(cadet => (
+                                <tr key={cadet.id} className="border-b hover:bg-gray-50">
+                                    <td className="p-4">
+                                        <div className="font-medium">
+                                            <span className="font-bold text-blue-900 mr-1">{cadet.rank}</span>
+                                            {cadet.last_name}, {cadet.first_name}
+                                        </div>
+                                        <div className="text-xs text-gray-500">{cadet.email}</div>
+                                    </td>
+                                    <td className="p-4">{cadet.username || cadet.student_id}</td>
+                                    <td className="p-4 text-center">{cadet.company || '-'}/{cadet.platoon || '-'}</td>
+                                    <td className="p-4 text-center">
+                                        <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                                            cadet.status === 'Ongoing' ? 'bg-blue-100 text-blue-800' :
+                                            cadet.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                                            'bg-gray-100 text-gray-800'
+                                        }`}>
+                                            {cadet.status}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-right space-x-2">
+                                        <button 
+                                            onClick={() => openEditModal(cadet)}
+                                            className="text-gray-600 hover:bg-gray-50 p-2 rounded"
+                                            title="Edit Info"
+                                        >
+                                            <Pencil size={18} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>
@@ -600,8 +469,7 @@ const Cadets = () => {
                                 <div className="text-xs text-gray-500 mt-2 space-y-1">
                                     <p><strong>Supported formats:</strong> .xlsx, .xls, .csv, .pdf</p>
                                     <p><strong>Excel/CSV:</strong> Required: "First Name", "Last Name". Optional: "Student ID", "Username", "Email".</p>
-                                    <p><strong>PDF:</strong> Only imports <strong>Rank</strong> and <strong>Name</strong> (e.g., "CDT Lastname, Firstname"). Other data is ignored.</p>
-                                    <p><strong>Note:</strong> If Student ID is missing in Excel, it will be auto-generated. Login uses Username (defaults to Student ID) or Email.</p>
+                                    <p><strong>Note:</strong> If Student ID is missing, it will be auto-generated from the name. Login uses Username (defaults to Student ID) or Email.</p>
                                 </div>
                             </div>
                             
@@ -670,11 +538,11 @@ const Cadets = () => {
                                 <input className="border p-2 rounded" value={addForm.middleName} onChange={e => setAddForm({...addForm, middleName: e.target.value})} placeholder="Middle Name" />
                                 <input className="border p-2 rounded" required value={addForm.lastName} onChange={e => setAddForm({...addForm, lastName: e.target.value})} placeholder="Last Name *" />
                                 <input className="border p-2 rounded" value={addForm.suffixName} onChange={e => setAddForm({...addForm, suffixName: e.target.value})} placeholder="Suffix" />
-                                <input className="border p-2 rounded" required value={addForm.username} onChange={e => setAddForm({...addForm, username: e.target.value})} placeholder="Username *" />
+                                <input className="border p-2 rounded" required value={addForm.studentId} onChange={e => setAddForm({...addForm, studentId: e.target.value})} placeholder="Student ID *" />
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <input className="border p-2 rounded" value={addForm.email} onChange={e => setAddForm({...addForm, email: e.target.value})} placeholder="Email" />
+                                <input className="border p-2 rounded" value={addForm.email} onChange={e => setAddForm({...addForm, email: e.target.value})} placeholder="Email (Login Username)" />
                                 <input className="border p-2 rounded" value={addForm.contactNumber} onChange={e => setAddForm({...addForm, contactNumber: e.target.value})} placeholder="Contact Number" />
                             </div>
 
@@ -694,10 +562,7 @@ const Cadets = () => {
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <select className="border p-2 rounded" value={addForm.cadetCourse} onChange={e => setAddForm({...addForm, cadetCourse: e.target.value})}>
-                                    <option value="">Select Cadet Course</option>
-                                    {CADET_COURSE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                </select>
+                                <input className="border p-2 rounded" value={addForm.cadetCourse} onChange={e => setAddForm({...addForm, cadetCourse: e.target.value})} placeholder="Cadet Course" />
                                 <input className="border p-2 rounded" value={addForm.status} onChange={e => setAddForm({...addForm, status: e.target.value})} placeholder="Status" />
                             </div>
                             
@@ -737,7 +602,7 @@ const Cadets = () => {
                                 <input className="border p-2 rounded" value={editForm.middleName} onChange={e => setEditForm({...editForm, middleName: e.target.value})} placeholder="Middle Name" />
                                 <input className="border p-2 rounded" value={editForm.lastName} onChange={e => setEditForm({...editForm, lastName: e.target.value})} placeholder="Last Name" />
                                 <input className="border p-2 rounded" value={editForm.suffixName} onChange={e => setEditForm({...editForm, suffixName: e.target.value})} placeholder="Suffix" />
-                                <input className="border p-2 rounded" value={editForm.username} onChange={e => setEditForm({...editForm, username: e.target.value})} placeholder="Username" />
+                                <input className="border p-2 rounded" value={editForm.studentId} onChange={e => setEditForm({...editForm, studentId: e.target.value})} placeholder="Student ID" />
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -765,7 +630,7 @@ const Cadets = () => {
                                 </select>
                                 <select className="border p-2 rounded" value={editForm.company} onChange={e => setEditForm({...editForm, company: e.target.value})}>
                                     <option value="">Select Coy</option>
-                                    {COMPANY_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    {['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Headquarters'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                 </select>
                                 <select className="border p-2 rounded" value={editForm.platoon} onChange={e => setEditForm({...editForm, platoon: e.target.value})}>
                                     <option value="">Select Platoon</option>
@@ -776,7 +641,7 @@ const Cadets = () => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <select className="border p-2 rounded" value={editForm.cadetCourse} onChange={e => setEditForm({...editForm, cadetCourse: e.target.value})}>
                                     <option value="">Select Cadet Course</option>
-                                    {CADET_COURSE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    {['MS1', 'MS2', 'COQC', 'MS32', 'MS42'].map(opt => <option key={opt} value={opt}>{opt}</option>)}
                                 </select>
                                 <select className="border p-2 rounded" value={editForm.semester} onChange={e => setEditForm({...editForm, semester: e.target.value})}>
                                     <option value="">Select Sem</option>
@@ -792,45 +657,6 @@ const Cadets = () => {
                             </div>
 
                             <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Update Cadet</button>
-                        </form>
-                    </div>
-                </div>
-            )}
-            {/* Password Reset Modal */}
-            {isPasswordResetModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-lg w-full max-w-sm p-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold">Reset Password</h3>
-                            <button onClick={() => setIsPasswordResetModalOpen(false)}><X size={20} /></button>
-                        </div>
-                        <p className="mb-4 text-sm text-gray-600">
-                            Resetting password for <strong>{currentCadet?.last_name}, {currentCadet?.first_name}</strong>
-                        </p>
-                        <form onSubmit={handlePasswordResetSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">New Password</label>
-                                <input 
-                                    type="password" 
-                                    required 
-                                    className="w-full border p-2 rounded"
-                                    value={passwordResetForm.newPassword}
-                                    onChange={e => setPasswordResetForm({...passwordResetForm, newPassword: e.target.value})}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
-                                <input 
-                                    type="password" 
-                                    required 
-                                    className="w-full border p-2 rounded"
-                                    value={passwordResetForm.confirmPassword}
-                                    onChange={e => setPasswordResetForm({...passwordResetForm, confirmPassword: e.target.value})}
-                                />
-                            </div>
-                            <button type="submit" className="w-full bg-yellow-600 text-white py-2 rounded hover:bg-yellow-700">
-                                Update Password
-                            </button>
                         </form>
                     </div>
                 </div>

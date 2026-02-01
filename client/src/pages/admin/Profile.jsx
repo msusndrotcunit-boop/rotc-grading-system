@@ -3,7 +3,6 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { Camera, User, Mail, Shield, Info } from 'lucide-react';
 import { cacheSingleton, getSingleton } from '../../utils/db';
-import imageCompression from 'browser-image-compression';
 
 const AdminProfile = () => {
     const { user } = useAuth();
@@ -36,24 +35,11 @@ const AdminProfile = () => {
         }
     };
 
-    const handleFileChange = async (e) => {
+    const handleFileChange = (e) => {
         const selectedFile = e.target.files[0];
+        setFile(selectedFile);
         if (selectedFile) {
-            try {
-                const options = {
-                    maxSizeMB: 0.5, // Compress to ~500KB
-                    maxWidthOrHeight: 800,
-                    useWebWorker: true
-                };
-                const compressedFile = await imageCompression(selectedFile, options);
-                setFile(compressedFile);
-                setPreview(URL.createObjectURL(compressedFile));
-            } catch (error) {
-                console.error('Image compression failed:', error);
-                // Fallback to original file if compression fails
-                setFile(selectedFile);
-                setPreview(URL.createObjectURL(selectedFile));
-            }
+            setPreview(URL.createObjectURL(selectedFile));
         }
     };
 

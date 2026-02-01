@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar, Plus, Trash2, CheckCircle, XCircle, Clock, AlertTriangle, Save, Search, ChevronRight, Upload, FileText, Download, ChevronUp, ChevronDown } from 'lucide-react';
+import { Calendar, Plus, Trash2, CheckCircle, XCircle, Clock, AlertTriangle, Save, Search, ChevronRight, Upload, FileText } from 'lucide-react';
 import ExcuseLetterManager from '../../components/ExcuseLetterManager';
 import { cacheData, getCachedData, cacheSingleton, getSingleton } from '../../utils/db';
-import { COMPANY_OPTIONS } from '../../constants/options';
 
 const Attendance = () => {
     const [viewMode, setViewMode] = useState('attendance'); // 'attendance' | 'excuse'
@@ -14,10 +13,8 @@ const Attendance = () => {
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [createForm, setCreateForm] = useState({ date: '', title: '', description: '' });
-    const [isHeaderExpanded, setIsHeaderExpanded] = useState(true);
     
     // Import State
-    // Fix: Added handleDownloadReport for report generation
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importFile, setImportFile] = useState(null);
     const [importUrl, setImportUrl] = useState('');
@@ -85,13 +82,19 @@ const Attendance = () => {
         setSelectedDay(day);
         setLoading(true);
         try {
-            // Removed caching to ensure real-time sync with Cadet/Staff management list
+            const cacheKey = `${day.id}_${attendanceType}`;
+            try {
+                const cached = await getSingleton('attendance_by_day', cacheKey);
+                if (cached?.length) setAttendanceRecords(cached);
+            } catch {}
+            
             const endpoint = attendanceType === 'cadet' 
                 ? `/api/attendance/records/${day.id}`
                 : `/api/attendance/records/staff/${day.id}`;
 
             const res = await axios.get(endpoint);
             setAttendanceRecords(res.data);
+            await cacheSingleton('attendance_by_day', cacheKey, res.data);
             setLoading(false);
         } catch (err) {
             console.error(err);
@@ -166,28 +169,6 @@ const Attendance = () => {
         }
     };
 
-    const handleDownloadReport = async (type) => {
-        const targetType = type || attendanceType;
-        try {
-            const endpoint = targetType === 'cadet' 
-                ? '/api/admin/reports/attendance/cadets' 
-                : '/api/admin/reports/attendance/staff';
-            
-            const response = await axios.get(endpoint, { responseType: 'blob' });
-            
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `${attendanceType === 'cadet' ? 'Cadet' : 'Staff'}_Attendance_Report.xlsx`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-        } catch (err) {
-            console.error("Download failed", err);
-            alert("Failed to download report");
-        }
-    };
-
     const handleRemarkChange = async (id, remarks) => {
         const updatedRecords = attendanceRecords.map(r => 
             (attendanceType === 'cadet' ? r.cadet_id === id : r.staff_id === id) ? { ...r, remarks: remarks } : r
@@ -240,29 +221,11 @@ const Attendance = () => {
         return acc;
     }, {});
 
-
-
     return (
         <div className="h-full flex flex-col gap-4">
             <div className="flex justify-between items-center bg-white p-4 rounded shadow">
-                <h1 className="text-2xl font-bold text-gray-800">Attendance Management</h1>
+                <h1 className="text-2xl font-bold text-gray-800">Attendance & Excuses</h1>
                 <div className="flex space-x-2">
-                    <div className="mr-4 flex space-x-2 border-r pr-4">
-                        <button 
-                            onClick={() => handleDownloadReport('cadet')}
-                            className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center text-sm"
-                            title="Download Cadet Attendance Report"
-                        >
-                            <Download size={16} className="mr-2" /> Cadet Report
-                        </button>
-                        <button 
-                            onClick={() => handleDownloadReport('staff')}
-                            className="px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center text-sm"
-                            title="Download Staff Attendance Report"
-                        >
-                            <Download size={16} className="mr-2" /> Staff Report
-                        </button>
-                    </div>
                     <button 
                         onClick={() => setViewMode('attendance')}
                         className={`px-4 py-2 rounded flex items-center transition ${viewMode === 'attendance' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
@@ -330,103 +293,72 @@ const Attendance = () => {
                     <div className={`w-full md:w-2/3 bg-white rounded shadow flex flex-col ${!selectedDay ? 'hidden md:flex' : ''}`}>
                         {selectedDay ? (
                             <>
-                        <div className="border-b bg-gray-50 rounded-t transition-all duration-300">
-                            <div className="p-4 flex flex-col md:flex-row justify-between items-start">
-                                <div className="w-full">
+                        <div className="p-4 border-b bg-gray-50 rounded-t">
+                            <div className="flex flex-col md:flex-row justify-between items-start mb-4">
+                                <div>
                                     <button onClick={() => setSelectedDay(null)} className="md:hidden text-gray-500 mb-2 flex items-center text-sm">
                                         <ChevronRight className="rotate-180 mr-1" size={16} /> Back to List
                                     </button>
-                                    <div className="flex items-center justify-between w-full">
-                                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                                            {selectedDay.title}
-                                            <button 
-                                                onClick={() => setIsHeaderExpanded(!isHeaderExpanded)}
-                                                className="p-1 hover:bg-gray-200 rounded-full text-gray-600 focus:outline-none"
-                                                title={isHeaderExpanded ? "Collapse Controls" : "Expand Controls"}
-                                            >
-                                                {isHeaderExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                                            </button>
-                                        </h2>
-                                        {!isHeaderExpanded && (
-                                            <div className="text-sm text-gray-500 flex items-center gap-2">
-                                                <span className={`px-2 py-0.5 rounded ${attendanceType === 'cadet' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>
-                                                    {attendanceType === 'cadet' ? 'Cadets' : 'Staff'}
-                                                </span>
-                                                <span className="flex items-center text-green-700"><CheckCircle size={14} className="mr-1"/> {stats.present || 0}</span>
-                                                <span className="flex items-center text-red-700"><XCircle size={14} className="mr-1"/> {stats.absent || 0}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                    
-                                    {isHeaderExpanded && (
-                                        <div className="mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                            <p className="text-gray-600 mb-4">{selectedDay.description || 'No description'}</p>
-                                            
-                                            <div className="flex flex-col md:flex-row justify-between items-stretch md:items-end gap-4">
-                                                {/* Left Side: Filters */}
-                                                <div className="w-full md:w-auto flex-1 space-y-4">
-                                                    <div className="flex bg-gray-200 rounded p-1 w-full md:w-fit overflow-x-auto">
-                                                        <button
-                                                            className={`px-4 py-1 rounded text-sm font-semibold transition whitespace-nowrap ${attendanceType === 'cadet' ? 'bg-white shadow text-green-800' : 'text-gray-600'}`}
-                                                            onClick={() => setAttendanceType('cadet')}
-                                                        >
-                                                            Cadets
-                                                        </button>
-                                                        <button
-                                                            className={`px-4 py-1 rounded text-sm font-semibold transition whitespace-nowrap ${attendanceType === 'staff' ? 'bg-white shadow text-green-800' : 'text-gray-600'}`}
-                                                            onClick={() => setAttendanceType('staff')}
-                                                        >
-                                                            Training Staff
-                                                        </button>
-                                                    </div>
-                                                    
-                                                    <div className="flex flex-col md:flex-row flex-wrap gap-2">
-                                                        <input 
-                                                            placeholder="Search Name..." 
-                                                            className="border p-2 rounded text-sm w-full md:w-64"
-                                                            value={searchTerm}
-                                                            onChange={e => setSearchTerm(e.target.value)}
-                                                        />
-                                                        {attendanceType === 'cadet' && (
-                                                            <>
-                                                                <select 
-                                                                    className="border p-2 rounded text-sm w-full md:w-32"
-                                                                    value={filterCompany}
-                                                                    onChange={e => setFilterCompany(e.target.value)}
-                                                                >
-                                                                    <option value="">All Companies</option>
-                                                                    {COMPANY_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                                                </select>
-                                                                <input 
-                                                                    placeholder="Filter Platoon" 
-                                                                    className="border p-2 rounded text-sm w-full md:w-32"
-                                                                    value={filterPlatoon}
-                                                                    onChange={e => setFilterPlatoon(e.target.value)}
-                                                                />
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {/* Right Side: Import & Stats */}
-                                                <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-auto">
-                                                    <button 
-                                                        onClick={() => setIsImportModalOpen(true)}
-                                                        className="flex items-center justify-center md:justify-start text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition w-full md:w-auto"
-                                                    >
-                                                        <Upload size={16} className="mr-2" /> Import Attendance
-                                                    </button>
-                                                    <div className="flex flex-wrap gap-2 text-sm justify-start md:justify-end w-full">
-                                                        <div className="flex items-center text-green-700 bg-green-50 px-2 py-1 rounded flex-1 md:flex-none justify-center"><CheckCircle size={16} className="mr-1"/> Present: {stats.present || 0}</div>
-                                                        <div className="flex items-center text-red-700 bg-red-50 px-2 py-1 rounded flex-1 md:flex-none justify-center"><XCircle size={16} className="mr-1"/> Absent: {stats.absent || 0}</div>
-                                                        <div className="flex items-center text-yellow-700 bg-yellow-50 px-2 py-1 rounded flex-1 md:flex-none justify-center"><Clock size={16} className="mr-1"/> Late: {stats.late || 0}</div>
-                                                        <div className="flex items-center text-blue-700 bg-blue-50 px-2 py-1 rounded flex-1 md:flex-none justify-center"><AlertTriangle size={16} className="mr-1"/> Excused: {stats.excused || 0}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
+                                    <h2 className="text-2xl font-bold text-gray-800">{selectedDay.title}</h2>
+                                    <p className="text-gray-600 mt-1">{selectedDay.description || 'No description'}</p>
                                 </div>
+                                <div className="flex flex-col items-end gap-2 mt-2 md:mt-0">
+                                    <button 
+                                        onClick={() => setIsImportModalOpen(true)}
+                                        className="flex items-center text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
+                                    >
+                                        <Upload size={16} className="mr-2" /> Import Attendance
+                                    </button>
+                                    <div className="flex flex-wrap gap-2 text-sm">
+                                        <div className="flex items-center text-green-700 bg-green-50 px-2 py-1 rounded"><CheckCircle size={16} className="mr-1"/> Present: {stats.present || 0}</div>
+                                        <div className="flex items-center text-red-700 bg-red-50 px-2 py-1 rounded"><XCircle size={16} className="mr-1"/> Absent: {stats.absent || 0}</div>
+                                        <div className="flex items-center text-yellow-700 bg-yellow-50 px-2 py-1 rounded"><Clock size={16} className="mr-1"/> Late: {stats.late || 0}</div>
+                                        <div className="flex items-center text-blue-700 bg-blue-50 px-2 py-1 rounded"><AlertTriangle size={16} className="mr-1"/> Excused: {stats.excused || 0}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Filters */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                <div className="md:col-span-3 flex justify-center mb-2">
+                                    <div className="bg-gray-200 rounded p-1 flex">
+                                        <button
+                                            className={`px-4 py-1 rounded text-sm font-semibold transition ${attendanceType === 'cadet' ? 'bg-white shadow text-green-800' : 'text-gray-600'}`}
+                                            onClick={() => setAttendanceType('cadet')}
+                                        >
+                                            Cadets
+                                        </button>
+                                        <button
+                                            className={`px-4 py-1 rounded text-sm font-semibold transition ${attendanceType === 'staff' ? 'bg-white shadow text-green-800' : 'text-gray-600'}`}
+                                            onClick={() => setAttendanceType('staff')}
+                                        >
+                                            Training Staff
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <input 
+                                    placeholder="Search Name..." 
+                                    className="border p-2 rounded"
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
+                                {attendanceType === 'cadet' && (
+                                    <>
+                                        <input 
+                                            placeholder="Filter Company" 
+                                            className="border p-2 rounded"
+                                            value={filterCompany}
+                                            onChange={e => setFilterCompany(e.target.value)}
+                                        />
+                                        <input 
+                                            placeholder="Filter Platoon" 
+                                            className="border p-2 rounded"
+                                            value={filterPlatoon}
+                                            onChange={e => setFilterPlatoon(e.target.value)}
+                                        />
+                                    </>
+                                )}
                             </div>
                         </div>
 
