@@ -247,6 +247,15 @@ function initPgDb() {
             type TEXT NOT NULL,
             is_read BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`,
+        `CREATE TABLE IF NOT EXISTS user_settings (
+            user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            email_alerts BOOLEAN DEFAULT TRUE,
+            push_notifications BOOLEAN DEFAULT TRUE,
+            activity_updates BOOLEAN DEFAULT TRUE,
+            dark_mode BOOLEAN DEFAULT FALSE,
+            compact_mode BOOLEAN DEFAULT FALSE,
+            primary_color TEXT DEFAULT 'blue'
         )`
     ];
 
@@ -439,6 +448,18 @@ function initSqliteDb() {
         // Note: SQLite CHECK constraint update requires table recreation, skipping for now as it's complex.
         // Ensure new users table creation has correct check.
 
+
+        // User Settings Table
+        db.run(`CREATE TABLE IF NOT EXISTS user_settings (
+            user_id INTEGER PRIMARY KEY,
+            email_alerts INTEGER DEFAULT 1,
+            push_notifications INTEGER DEFAULT 1,
+            activity_updates INTEGER DEFAULT 1,
+            dark_mode INTEGER DEFAULT 0,
+            compact_mode INTEGER DEFAULT 0,
+            primary_color TEXT DEFAULT 'blue',
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )`);
 
         seedAdmin();
     });

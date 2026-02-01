@@ -21,6 +21,87 @@ router.post('/heartbeat', authenticateToken, (req, res) => {
     });
 });
 
+// GET /api/auth/settings - Fetch user settings
+router.get('/settings', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    db.get("SELECT * FROM user_settings WHERE user_id = ?", [userId], (err, row) => {
+        if (err) return res.status(500).json({ message: err.message });
+        if (!row) {
+            // Return defaults if no settings found
+            return res.json({
+                email_alerts: true,
+                push_notifications: true,
+                activity_updates: true,
+                dark_mode: false,
+                compact_mode: false,
+                primary_color: 'blue'
+            });
+        }
+        
+        // Convert integer booleans (SQLite) to JS booleans if needed
+        const settings = {
+            email_alerts: !!row.email_alerts,
+            push_notifications: !!row.push_notifications,
+            activity_updates: !!row.activity_updates,
+            dark_mode: !!row.dark_mode,
+            compact_mode: !!row.compact_mode,
+            primary_color: row.primary_color
+        };
+        res.json(settings);
+    });
+});
+
+// PUT /api/auth/settings - Update user settings
+router.put('/settings', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const { 
+        email_alerts, 
+        push_notifications, 
+        activity_updates, 
+        dark_mode, 
+        compact_mode, 
+        primary_color 
+    } = req.body;
+
+    // Pass booleans directly. 
+    // SQLite driver converts true/false to 1/0.
+    // Postgres driver converts true/false to BOOLEAN true/false.
+    
+    const e = email_alerts;
+    const p = push_notifications;
+    const a = activity_updates;
+    const d = dark_mode;
+    const c = compact_mode;
+    const col = primary_color || 'blue';
+
+    db.get("SELECT 1 FROM user_settings WHERE user_id = ?", [userId], (err, row) => {
+        if (err) return res.status(500).json({ message: err.message });
+        
+        if (row) {
+            // Update
+            const sql = `UPDATE user_settings SET 
+                email_alerts = ?, 
+                push_notifications = ?, 
+                activity_updates = ?, 
+                dark_mode = ?, 
+                compact_mode = ?, 
+                primary_color = ? 
+                WHERE user_id = ?`;
+            db.run(sql, [e, p, a, d, c, col, userId], (updateErr) => {
+                if (updateErr) return res.status(500).json({ message: updateErr.message });
+                res.json({ message: 'Settings updated' });
+            });
+        } else {
+            // Insert
+            const sql = `INSERT INTO user_settings (user_id, email_alerts, push_notifications, activity_updates, dark_mode, compact_mode, primary_color) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+            db.run(sql, [userId, e, p, a, d, c, col], (insertErr) => {
+                if (insertErr) return res.status(500).json({ message: insertErr.message });
+                res.json({ message: 'Settings created' });
+            });
+        }
+    });
+});
+
 // Login
 router.post('/login', (req, res) => {
     const { username, password } = req.body;

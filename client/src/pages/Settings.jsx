@@ -21,12 +21,37 @@ const Settings = ({ role }) => {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        // In a real app, fetch user specific settings from DB
-        // For now, load from localStorage
-        const savedSettings = localStorage.getItem(`settings_${role}`);
-        if (savedSettings) {
-            setSettings(JSON.parse(savedSettings));
-        }
+        const fetchSettings = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+
+                const res = await axios.get('/api/auth/settings', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                if (res.data) {
+                    setSettings({
+                        notifications: {
+                            emailAlerts: res.data.email_alerts,
+                            pushNotifications: res.data.push_notifications,
+                            activityUpdates: res.data.activity_updates
+                        },
+                        display: {
+                            darkMode: res.data.dark_mode,
+                            compactMode: res.data.compact_mode
+                        },
+                        theme: {
+                            primaryColor: res.data.primary_color
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching settings:', error);
+            }
+        };
+
+        fetchSettings();
     }, [role]);
 
     const handleChange = (section, key, value) => {
@@ -42,11 +67,19 @@ const Settings = ({ role }) => {
     const handleSave = async () => {
         setSaving(true);
         try {
-            // Save to localStorage for demo
-            localStorage.setItem(`settings_${role}`, JSON.stringify(settings));
-            
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 500));
+            const token = localStorage.getItem('token');
+            const payload = {
+                email_alerts: settings.notifications.emailAlerts,
+                push_notifications: settings.notifications.pushNotifications,
+                activity_updates: settings.notifications.activityUpdates,
+                dark_mode: settings.display.darkMode,
+                compact_mode: settings.display.compactMode,
+                primary_color: settings.theme.primaryColor
+            };
+
+            await axios.put('/api/auth/settings', payload, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             
             alert('Settings saved successfully');
         } catch (error) {
