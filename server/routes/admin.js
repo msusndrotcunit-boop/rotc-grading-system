@@ -796,21 +796,35 @@ router.post('/cadets', async (req, res) => {
                 const newCadetId = this.lastID;
 
                 // Create User Account (Auto-approved)
-                const username = cadet.firstName || cadet.studentId; // Default to First Name
+                const baseUsername = cadet.firstName || cadet.studentId; // Default to First Name
                 const dummyHash = '$2a$10$DUMMYPASSWORDHASHDO_NOT_USE_OR_YOU_WILL_BE_HACKED';
                 
-                db.run(`INSERT INTO users (username, password, role, cadet_id, is_approved, email) VALUES (?, ?, ?, ?, ?, ?)`, 
-                    [username, dummyHash, 'cadet', newCadetId, 1, cadet.email || ''], 
-                    (err) => {
-                        if (err) console.error("Error creating user for new cadet:", err);
-                        
-                        // Initialize Grades
-                        db.run(`INSERT INTO grades (cadet_id) VALUES (?)`, [newCadetId], (err) => {
-                            if (err) console.error("Error initializing grades:", err);
-                            res.status(201).json({ message: 'Cadet created successfully', id: newCadetId });
-                        });
-                    }
-                );
+                const insertUser = (uName) => {
+                    db.run(`INSERT INTO users (username, password, role, cadet_id, is_approved, email) VALUES (?, ?, ?, ?, ?, ?)`, 
+                        [uName, dummyHash, 'cadet', newCadetId, 1, cadet.email || ''], 
+                        (err) => {
+                            if (err) {
+                                // Handle duplicate username error
+                                if (err.message.includes('UNIQUE constraint') || err.message.includes('duplicate key') || err.message.includes('users_username_key')) {
+                                    console.log(`Username ${uName} taken, trying new one...`);
+                                    const newUsername = baseUsername + Math.floor(Math.random() * 10000);
+                                    insertUser(newUsername);
+                                } else {
+                                    console.error("Error creating user for new cadet:", err);
+                                    return res.status(500).json({ message: 'Error creating user account: ' + err.message });
+                                }
+                            } else {
+                                // Initialize Grades
+                                db.run(`INSERT INTO grades (cadet_id) VALUES (?)`, [newCadetId], (err) => {
+                                    if (err) console.error("Error initializing grades:", err);
+                                    res.status(201).json({ message: 'Cadet created successfully', id: newCadetId });
+                                });
+                            }
+                        }
+                    );
+                };
+
+                insertUser(baseUsername);
             });
         });
     } catch (error) {
