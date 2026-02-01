@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Calendar, X, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, X, AlertCircle, User, Info, Link } from 'lucide-react';
 import ExcuseLetterSubmission from '../../components/ExcuseLetterSubmission';
 import { cacheData, getCachedData } from '../../utils/db';
 
 const CadetDashboard = () => {
+    const navigate = useNavigate();
     const [grades, setGrades] = useState(null);
-    const [activities, setActivities] = useState([]);
     const [logs, setLogs] = useState([]);
     const [attendanceLogs, setAttendanceLogs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -24,16 +25,6 @@ const CadetDashboard = () => {
                     const gradesRes = await axios.get('/api/cadet/my-grades');
                     setGrades(gradesRes.data);
                     await cacheData('grades', [gradesRes.data]);
-                } catch {}
-
-                try {
-                    const cachedActivities = await getCachedData('activities');
-                    if (cachedActivities && cachedActivities.length > 0) setActivities(cachedActivities);
-                } catch {}
-                try {
-                    const activitiesRes = await axios.get('/api/cadet/activities');
-                    setActivities(activitiesRes.data);
-                    await cacheData('activities', activitiesRes.data);
                 } catch {}
 
                 try {
@@ -127,33 +118,35 @@ const CadetDashboard = () => {
                 )}
             </div>
 
-            {/* Activities Section */}
-            <div>
-                <h2 className="text-xl font-bold mb-4">Upcoming Activities</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {activities.length > 0 ? activities.map(activity => (
-                        <div key={activity.id} className="bg-white rounded shadow overflow-hidden">
-                            {activity.image_path && (
-                                <img 
-                                    src={activity.image_path.startsWith('data:') ? activity.image_path : `/uploads/${activity.image_path.replace(/\\/g, '/')}`} 
-                                    alt={activity.title} 
-                                    className="w-full h-48 object-cover"
-                                />
-                            )}
-                            <div className="p-4">
-                                <h3 className="font-bold text-lg mb-2">{activity.title}</h3>
-                                <p className="text-gray-600 text-sm mb-3 line-clamp-2">{activity.description}</p>
-                                <div className="flex items-center text-gray-500 text-sm">
-                                    <Calendar size={16} className="mr-2" />
-                                    {new Date(activity.date).toLocaleDateString()}
-                                </div>
-                            </div>
-                        </div>
-                    )) : (
-                        <div className="col-span-full bg-white p-6 rounded shadow text-center text-gray-500">
-                            No upcoming activities.
-                        </div>
-                    )}
+
+
+            {/* Quick Links */}
+            <div className="bg-white rounded shadow p-6">
+                <h2 className="text-xl font-bold mb-4 border-b pb-2">Quick Links</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button 
+                        onClick={() => navigate('/cadet/profile')}
+                        className="flex items-center justify-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border transition-colors group"
+                    >
+                        <User className="mr-3 text-blue-600 group-hover:scale-110 transition-transform" size={24} />
+                        <span className="font-semibold text-gray-700">My Profile</span>
+                    </button>
+                    <button 
+                        onClick={() => navigate('/cadet/about')}
+                        className="flex items-center justify-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border transition-colors group"
+                    >
+                        <Info className="mr-3 text-green-600 group-hover:scale-110 transition-transform" size={24} />
+                        <span className="font-semibold text-gray-700">About System</span>
+                    </button>
+                    <a 
+                        href="https://www.facebook.com/msusndrotc" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border transition-colors group"
+                    >
+                        <Link className="mr-3 text-indigo-600 group-hover:scale-110 transition-transform" size={24} />
+                        <span className="font-semibold text-gray-700">Official Page</span>
+                    </a>
                 </div>
             </div>
 

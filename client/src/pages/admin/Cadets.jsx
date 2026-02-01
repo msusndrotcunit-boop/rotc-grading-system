@@ -45,6 +45,9 @@ const Cadets = () => {
     
     // Filter State
     const [selectedCadetCourse, setSelectedCadetCourse] = useState('All');
+    
+    // Bulk Selection State
+    const [selectedCadets, setSelectedCadets] = useState([]);
 
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [exportOptions, setExportOptions] = useState({
@@ -343,6 +346,15 @@ const Cadets = () => {
                         >
                             <RefreshCw size={18} className={syncing ? 'animate-spin' : ''} />
                             <span>{syncing ? 'Syncing...' : 'Sync'}</span>
+                        </button>
+                    )}
+                    {selectedCadets.length > 0 && (
+                        <button
+                            onClick={handleBulkDelete}
+                            className="flex-1 md:flex-none bg-red-600 text-white px-4 py-2 rounded flex items-center justify-center space-x-2 hover:bg-red-700 animate-fade-in"
+                        >
+                            <Trash2 size={18} />
+                            <span>Delete ({selectedCadets.length})</span>
                         </button>
                     )}
                     <button 

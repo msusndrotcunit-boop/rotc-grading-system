@@ -5,7 +5,7 @@ const About = () => {
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
                 <div className="flex flex-col items-center text-center mb-8">
-                    <div className="flex space-x-4 mb-6">
+                    <div className="flex flex-col md:flex-row items-center justify-center gap-6 mb-6">
                         <img 
                             src="/assets/msu_rotc_logo.png" 
                             alt="ROTC Logo" 

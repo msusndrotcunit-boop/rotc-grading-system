@@ -1,7 +1,7 @@
 import React, { useState, Suspense, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Users, Calendar, LogOut, UserCheck, User, Menu, X, ClipboardList, Calculator, UserCog, Bell, Check } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, LogOut, UserCheck, User, Menu, X, ClipboardList, Calculator, UserCog, Bell, Check, Settings } from 'lucide-react';
 import clsx from 'clsx';
 import axios from 'axios';
 
@@ -55,6 +55,24 @@ const AdminLayout = () => {
         navigate('/login');
     };
 
+    const toggleNotifications = async () => {
+        if (!showNotifications) {
+            setShowNotifications(true);
+            try {
+                const token = localStorage.getItem('token');
+                await axios.put('/api/admin/notifications/read-all', {}, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setUnreadCount(0);
+                setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+            } catch (err) {
+                console.error(err);
+            }
+        } else {
+            setShowNotifications(false);
+        }
+    };
+
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
     const navItems = [
@@ -66,6 +84,7 @@ const AdminLayout = () => {
         { path: '/admin/activities', label: 'Activities', icon: Calendar },
         // { path: '/admin/approvals', label: 'Approvals', icon: UserCheck }, // Removed as approvals are automated via import
         { path: '/admin/profile', label: 'Profile', icon: User },
+        { path: '/admin/settings', label: 'Settings', icon: Settings },
     ];
 
     return (
@@ -136,7 +155,7 @@ const AdminLayout = () => {
                     {/* Notification Bell */}
                     <div className="relative mr-4">
                         <button 
-                            onClick={() => setShowNotifications(!showNotifications)}
+                            onClick={toggleNotifications}
                             className="p-2 text-gray-600 hover:text-gray-900 relative"
                         >
                             <Bell size={24} />

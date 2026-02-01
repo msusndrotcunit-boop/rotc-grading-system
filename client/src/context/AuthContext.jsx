@@ -27,6 +27,28 @@ export const AuthProvider = ({ children }) => {
         initAuth();
     }, []);
 
+    // Heartbeat mechanism
+    useEffect(() => {
+        if (!user) return;
+
+        const sendHeartbeat = async () => {
+            try {
+                await axios.post('/api/auth/heartbeat');
+            } catch (error) {
+                // Fail silently
+                console.error('Heartbeat failed', error);
+            }
+        };
+
+        // Send initial heartbeat
+        sendHeartbeat();
+
+        // Set interval for every minute
+        const intervalId = setInterval(sendHeartbeat, 60000);
+
+        return () => clearInterval(intervalId);
+    }, [user]);
+
     const login = useCallback(async (userData, token) => { // Updated signature to match usage in Login.jsx if needed, but Login.jsx calls login(user, token) - wait, Login.jsx calls login(user, token).
         // Actually, looking at Login.jsx: login(user, token). user object there is passed.
         // Let's check Login.jsx usage: login(user, token);

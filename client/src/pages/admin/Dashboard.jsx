@@ -124,7 +124,7 @@ const Dashboard = () => {
     return (
         <div className="space-y-6">
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bg-white p-6 rounded shadow border-l-4 border-blue-500">
                     <h3 className="text-gray-500 text-sm font-medium">Total Cadets</h3>
                     <p className="text-3xl font-bold text-gray-800">{stats.totalCadets}</p>
@@ -136,6 +136,10 @@ const Dashboard = () => {
                 <div className="bg-white p-6 rounded shadow border-l-4 border-purple-500">
                     <h3 className="text-gray-500 text-sm font-medium">Training Days</h3>
                     <p className="text-3xl font-bold text-gray-800">15</p>
+                </div>
+                <div className="bg-white p-6 rounded shadow border-l-4 border-indigo-500">
+                    <h3 className="text-gray-500 text-sm font-medium">Online Cadets</h3>
+                    <p className="text-3xl font-bold text-gray-800">{onlineCount}</p>
                 </div>
             </div>
 

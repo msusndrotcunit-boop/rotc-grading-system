@@ -10,6 +10,17 @@ const router = express.Router();
 // Register (Sign Up) for Cadets - REMOVED
 // router.post('/signup', ...);
 
+// Heartbeat for Online Status
+router.post('/heartbeat', authenticateToken, (req, res) => {
+    const userId = req.user.id;
+    const now = new Date().toISOString();
+    db.run("UPDATE users SET last_seen = ? WHERE id = ?", [now, userId], (err) => {
+        if (err) console.error("Heartbeat error:", err);
+        // Fail silently to client
+        res.sendStatus(200);
+    });
+});
+
 // Login
 router.post('/login', (req, res) => {
     const { username, password } = req.body;
@@ -27,6 +38,22 @@ router.post('/login', (req, res) => {
 
         const token = jwt.sign({ id: user.id, role: user.role, cadetId: user.cadet_id, staffId: user.staff_id }, SECRET_KEY, { expiresIn: '1h' });
         
+        // Notify Admin of Login if it's a cadet (or staff?)
+        if (user.role === 'cadet' || user.role === 'training_staff') {
+            const displayName = user.username; // Or fetch name if available
+            const notifMsg = `${displayName} (${user.role}) has logged in.`;
+            db.run(`INSERT INTO notifications (user_id, message, type) VALUES (NULL, ?, ?)`, 
+                [notifMsg, 'login'], 
+                (nErr) => {
+                    if (nErr) console.error("Error creating login notification:", nErr);
+                }
+            );
+        }
+
+        // Update last_seen
+        const now = new Date().toISOString();
+        db.run("UPDATE users SET last_seen = ? WHERE id = ?", [now, user.id], (err) => { if(err) console.error(err); });
+
         res.json({ token, role: user.role, cadetId: user.cadet_id, staffId: user.staff_id });
     });
 });
@@ -74,6 +101,10 @@ router.post('/cadet-login', (req, res) => {
             }
         );
 
+        // Update last_seen
+        const now = new Date().toISOString();
+        db.run("UPDATE users SET last_seen = ? WHERE id = ?", [now, user.id], (err) => { if(err) console.error(err); });
+
         res.json({ 
             token, 
             role: user.role, 
@@ -103,6 +134,10 @@ router.post('/staff-login-no-pass', (req, res) => {
 
         const token = jwt.sign({ id: user.id, role: user.role, staffId: user.staff_id }, SECRET_KEY, { expiresIn: '24h' });
         
+        // Update last_seen
+        const now = new Date().toISOString();
+        db.run("UPDATE users SET last_seen = ? WHERE id = ?", [now, user.id], (err) => { if(err) console.error(err); });
+
         res.json({ token, role: user.role, staffId: user.staff_id });
     });
 });

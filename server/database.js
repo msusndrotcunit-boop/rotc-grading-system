@@ -94,6 +94,16 @@ if (isPostgres) {
         END $$;
     `).catch(err => console.log('Migration info:', err.message));
 
+    // Migration: Add last_seen to users
+    pool.query(`
+        DO $$ 
+        BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='last_seen') THEN 
+                ALTER TABLE users ADD COLUMN last_seen TIMESTAMP; 
+            END IF; 
+        END $$;
+    `).catch(err => console.log('Migration info:', err.message));
+
 } else {
     const dbPath = path.resolve(__dirname, 'rotc.db');
     db = new sqlite3.Database(dbPath, (err) => {
@@ -104,6 +114,13 @@ if (isPostgres) {
             
             // Migration: Add is_profile_completed if missing
             db.run("ALTER TABLE cadets ADD COLUMN is_profile_completed INTEGER DEFAULT 0", (err) => {
+                if (err && !err.message.includes('duplicate column')) {
+                    console.log('Migration info:', err.message);
+                }
+            });
+
+            // Migration: Add last_seen to users
+            db.run("ALTER TABLE users ADD COLUMN last_seen TEXT", (err) => {
                 if (err && !err.message.includes('duplicate column')) {
                     console.log('Migration info:', err.message);
                 }

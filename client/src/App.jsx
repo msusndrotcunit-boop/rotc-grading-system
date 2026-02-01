@@ -7,6 +7,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 // Lazy Load Pages
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const Login = lazy(() => import('./pages/Login'));
+const Settings = lazy(() => import('./pages/Settings'));
 
 // Admin Pages
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
@@ -60,6 +61,7 @@ function App() {
                 <Route path="attendance" element={<AdminAttendance />} />
                 <Route path="activities" element={<AdminActivities />} />
                 <Route path="profile" element={<AdminProfile />} />
+                <Route path="settings" element={<Settings role="admin" />} />
                 <Route index element={<Navigate to="dashboard" replace />} />
               </Route>
             </Route>
@@ -71,6 +73,7 @@ function App() {
                 <Route path="dashboard" element={<CadetDashboard />} />
                 <Route path="profile" element={<CadetProfile />} />
                 <Route path="about" element={<CadetAbout />} />
+                <Route path="settings" element={<Settings role="cadet" />} />
                 <Route index element={<Navigate to="home" replace />} />
               </Route>
             </Route>
@@ -81,6 +84,7 @@ function App() {
                 <Route path="home" element={<StaffHome />} />
                 <Route path="dashboard" element={<StaffDashboard />} />
                 <Route path="profile" element={<StaffProfile />} />
+                <Route path="settings" element={<Settings role="staff" />} />
                 <Route index element={<Navigate to="home" replace />} />
               </Route>
             </Route>

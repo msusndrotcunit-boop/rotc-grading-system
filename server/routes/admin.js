@@ -918,17 +918,39 @@ router.put('/cadets/:id', (req, res) => {
 });
 
 // Delete Cadet (Bulk)
-router.post('/cadets/delete', (req, res) => {
+router.post('/cadets/delete', async (req, res) => {
     const { ids } = req.body; // Expecting array of IDs
     if (!ids || !Array.isArray(ids)) return res.status(400).json({ message: 'Invalid IDs' });
 
     const placeholders = ids.map(() => '?').join(',');
-    const sql = `DELETE FROM cadets WHERE id IN (${placeholders})`;
 
-    db.run(sql, ids, function(err) {
-        if (err) return res.status(500).json({ message: err.message });
-        res.json({ message: `Deleted ${this.changes} cadets` });
-    });
+    // Helper to wrap db.run in Promise
+    const runQuery = (sql, params) => {
+        return new Promise((resolve, reject) => {
+            db.run(sql, params, function(err) {
+                if (err) reject(err);
+                else resolve(this ? this.changes : 0);
+            });
+        });
+    };
+
+    try {
+        // Delete related records first (manual cascade) to ensure cleanup
+        // Note: Even if Foreign Keys are ON, explicit deletes are safer in mixed envs
+        await runQuery(`DELETE FROM grades WHERE cadet_id IN (${placeholders})`, ids);
+        await runQuery(`DELETE FROM users WHERE cadet_id IN (${placeholders})`, ids);
+        await runQuery(`DELETE FROM merit_demerit_logs WHERE cadet_id IN (${placeholders})`, ids);
+        await runQuery(`DELETE FROM attendance_records WHERE cadet_id IN (${placeholders})`, ids);
+        await runQuery(`DELETE FROM excuse_letters WHERE cadet_id IN (${placeholders})`, ids);
+        
+        // Finally delete cadets
+        const changes = await runQuery(`DELETE FROM cadets WHERE id IN (${placeholders})`, ids);
+        
+        res.json({ message: `Deleted ${changes} cadets and related records` });
+    } catch (err) {
+        console.error("Delete error:", err);
+        res.status(500).json({ message: 'Failed to delete cadets: ' + err.message });
+    }
 });
 
 // --- Grading Management ---
@@ -983,6 +1005,16 @@ router.post('/activities', upload.single('image'), (req, res) => {
         [title, description, date, imagePath],
         function(err) {
             if (err) return res.status(500).json({ message: err.message });
+            
+            // Create notification for the new activity
+            const notifMsg = `New Activity Posted: ${title}`;
+            db.run(`INSERT INTO notifications (user_id, message, type) VALUES (NULL, ?, 'activity')`, 
+                [notifMsg], 
+                (nErr) => {
+                    if (nErr) console.error("Error creating activity notification:", nErr);
+                }
+            );
+
             res.json({ id: this.lastID, message: 'Activity created' });
         }
     );
@@ -1195,11 +1227,34 @@ router.put('/notifications/:id/read', (req, res) => {
     });
 });
 
+// Mark All Notifications as Read
+router.put('/notifications/read-all', (req, res) => {
+    db.run(`UPDATE notifications SET is_read = 1 WHERE (user_id IS NULL OR user_id = ?) AND is_read = 0`, [req.user.id], function(err) {
+        if (err) return res.status(500).json({ message: err.message });
+        res.json({ message: 'All marked as read' });
+    });
+});
+
 // Clear All Notifications
 router.delete('/notifications', (req, res) => {
     db.run(`DELETE FROM notifications WHERE user_id IS NULL OR user_id = ?`, [req.user.id], function(err) {
         if (err) return res.status(500).json({ message: err.message });
         res.json({ message: 'Notifications cleared' });
+    });
+});
+
+// Get Online Users Count
+router.get('/online-users', (req, res) => {
+    // 5 minutes ago
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    
+    // Count users with last_seen > 5 mins ago
+    // AND role = 'cadet' (per user request: "how many cadets access the system")
+    const sql = `SELECT COUNT(*) as count FROM users WHERE last_seen > ? AND role = 'cadet'`;
+    
+    db.get(sql, [fiveMinutesAgo], (err, row) => {
+        if (err) return res.status(500).json({ message: err.message });
+        res.json({ count: row.count || 0 });
     });
 });
 
