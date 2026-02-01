@@ -1,61 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Save, Bell, Monitor, PaintBucket } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 const Settings = ({ role }) => {
-    const [settings, setSettings] = useState({
-        notifications: {
-            emailAlerts: true,
-            pushNotifications: true,
-            activityUpdates: true
-        },
-        display: {
-            darkMode: false,
-            compactMode: false
-        },
-        theme: {
-            primaryColor: 'blue'
-        }
-    });
-
+    const { settings, updateSettings } = useSettings();
+    const [localSettings, setLocalSettings] = useState(settings);
     const [saving, setSaving] = useState(false);
 
+    // Sync local state with context when context updates (initial load)
     useEffect(() => {
-        const fetchSettings = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                if (!token) return;
-
-                const res = await axios.get('/api/auth/settings', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-
-                if (res.data) {
-                    setSettings({
-                        notifications: {
-                            emailAlerts: res.data.email_alerts,
-                            pushNotifications: res.data.push_notifications,
-                            activityUpdates: res.data.activity_updates
-                        },
-                        display: {
-                            darkMode: res.data.dark_mode,
-                            compactMode: res.data.compact_mode
-                        },
-                        theme: {
-                            primaryColor: res.data.primary_color
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('Error fetching settings:', error);
-            }
-        };
-
-        fetchSettings();
-    }, [role]);
+        setLocalSettings(settings);
+    }, [settings]);
 
     const handleChange = (section, key, value) => {
-        setSettings(prev => ({
+        setLocalSettings(prev => ({
             ...prev,
             [section]: {
                 ...prev[section],
@@ -66,27 +24,12 @@ const Settings = ({ role }) => {
 
     const handleSave = async () => {
         setSaving(true);
-        try {
-            const token = localStorage.getItem('token');
-            const payload = {
-                email_alerts: settings.notifications.emailAlerts,
-                push_notifications: settings.notifications.pushNotifications,
-                activity_updates: settings.notifications.activityUpdates,
-                dark_mode: settings.display.darkMode,
-                compact_mode: settings.display.compactMode,
-                primary_color: settings.theme.primaryColor
-            };
-
-            await axios.put('/api/auth/settings', payload, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            
-            alert('Settings saved successfully');
-        } catch (error) {
-            console.error('Error saving settings:', error);
+        const success = await updateSettings(localSettings);
+        setSaving(false);
+        if (success) {
+            alert('Settings saved and applied successfully');
+        } else {
             alert('Failed to save settings');
-        } finally {
-            setSaving(false);
         }
     };
 
@@ -171,15 +114,18 @@ const Settings = ({ role }) => {
                     </h3>
                     <div className="pl-4 border-l-2 border-gray-100">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
-                        <div className="flex space-x-4">
-                            {['blue', 'green', 'indigo', 'purple', 'red'].map(color => (
+                        <div className="flex gap-4">
+                            {['blue', 'green', 'red', 'purple', 'orange'].map(color => (
                                 <button
                                     key={color}
                                     onClick={() => handleChange('theme', 'primaryColor', color)}
-                                    className={`w-8 h-8 rounded-full focus:outline-none ring-2 ring-offset-2 ${
-                                        settings.theme.primaryColor === color ? 'ring-gray-400 scale-110' : 'ring-transparent'
+                                    className={`w-10 h-10 rounded-full border-2 ${
+                                        localSettings.theme.primaryColor === color ? 'border-gray-800 scale-110' : 'border-transparent'
                                     }`}
-                                    style={{ backgroundColor: color === 'blue' ? '#2563eb' : color === 'green' ? '#16a34a' : color === 'indigo' ? '#4f46e5' : color === 'purple' ? '#9333ea' : '#dc2626' }}
+                                    style={{ backgroundColor: color === 'blue' ? '#3b82f6' : 
+                                                            color === 'green' ? '#10b981' :
+                                                            color === 'red' ? '#ef4444' :
+                                                            color === 'purple' ? '#8b5cf6' : '#f97316' }}
                                 />
                             ))}
                         </div>

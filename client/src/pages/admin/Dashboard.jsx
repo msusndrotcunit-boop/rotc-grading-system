@@ -174,9 +174,9 @@ const Dashboard = () => {
                         <h3 className="text-lg font-bold text-gray-800 mb-4">Cadets by Rank</h3>
                         <div className="h-64">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={rankData}>
+                                <BarChart data={rankData} margin={{ bottom: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="name" />
+                                    <XAxis dataKey="name" interval={0} angle={-45} textAnchor="end" height={60} tick={{fontSize: 10}} />
                                     <YAxis />
                                     <Tooltip />
                                     <Bar dataKey="count" fill="#10b981" name="Cadets" />

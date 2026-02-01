@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { SettingsProvider } from './context/SettingsContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -45,7 +46,8 @@ function App() {
     <ErrorBoundary>
       <Router>
         <AuthProvider>
-        <Suspense fallback={<LoadingSpinner />}>
+          <SettingsProvider>
+            <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
@@ -92,8 +94,9 @@ function App() {
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
-        </Suspense>
-      </AuthProvider>
+            </Suspense>
+          </SettingsProvider>
+        </AuthProvider>
       </Router>
     </ErrorBoundary>
   );
