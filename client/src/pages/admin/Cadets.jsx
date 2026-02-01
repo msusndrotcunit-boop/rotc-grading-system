@@ -282,6 +282,37 @@ const Cadets = () => {
         );
     });
 
+    // Bulk Selection Handlers
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedCadets(filteredCadets.map(c => c.id));
+        } else {
+            setSelectedCadets([]);
+        }
+    };
+
+    const handleSelectCadet = (id) => {
+        setSelectedCadets(prev => 
+            prev.includes(id) 
+                ? prev.filter(cId => cId !== id) 
+                : [...prev, id]
+        );
+    };
+
+    const handleBulkDelete = async () => {
+        if (!window.confirm(`Are you sure you want to delete ${selectedCadets.length} cadets? This action cannot be undone.`)) return;
+
+        try {
+            await axios.post('/api/admin/cadets/delete', { ids: selectedCadets });
+            alert('Cadets deleted successfully');
+            setSelectedCadets([]);
+            fetchCadets();
+        } catch (err) {
+            console.error(err);
+            alert('Failed to delete cadets');
+        }
+    };
+
     if (loading) return <div className="text-center p-10">Loading...</div>;
 
     return (
@@ -385,11 +416,19 @@ const Cadets = () => {
                     <tbody>
                         {filteredCadets.length === 0 ? (
                              <tr>
-                                <td colSpan="5" className="p-4 text-center text-gray-500">No cadets found.</td>
+                                <td colSpan="6" className="p-4 text-center text-gray-500">No cadets found.</td>
                              </tr>
                         ) : (
                             filteredCadets.map(cadet => (
                                 <tr key={cadet.id} className="border-b hover:bg-gray-50">
+                                    <td className="p-4 text-center">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={selectedCadets.includes(cadet.id)}
+                                            onChange={() => handleSelectCadet(cadet.id)}
+                                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                                        />
+                                    </td>
                                     <td className="p-4">
                                         <div className="font-medium">
                                             <span className="font-bold text-blue-900 mr-1">{cadet.rank}</span>
