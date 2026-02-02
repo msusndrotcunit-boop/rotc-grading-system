@@ -253,6 +253,7 @@ const extractFromRaw = (line) => {
     else if (lowerLine.includes('absent')) row['Status'] = 'absent';
     else if (lowerLine.includes('late')) row['Status'] = 'late';
     else if (lowerLine.includes('excused')) row['Status'] = 'excused';
+    else row['Status'] = 'unknown'; // Default status to prevent null
 
     // Header/Noise Blacklist
     const BLACKLIST = [

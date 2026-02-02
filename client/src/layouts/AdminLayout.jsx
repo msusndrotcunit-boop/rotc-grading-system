@@ -14,6 +14,9 @@ const AdminLayout = () => {
     const [showNotifications, setShowNotifications] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
 
+    // Helper to check if notification is read
+    const isNotifRead = (n) => n.is_read === 1 || n.is_read === '1' || n.is_read === true;
+
     // Fetch notifications
     const fetchNotifications = async () => {
         try {
@@ -23,7 +26,7 @@ const AdminLayout = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setNotifications(res.data);
-            setUnreadCount(res.data.filter(n => !(n.is_read === 1 || n.is_read === true || n.is_read === '1')).length);
+            setUnreadCount(res.data.filter(n => !isNotifRead(n)).length);
         } catch (err) {
             console.error("Error fetching notifications", err);
         }
@@ -45,7 +48,7 @@ const AdminLayout = () => {
             // Update local state and recompute count robustly
             setNotifications(prev => {
                 const next = prev.map(n => n.id === id ? { ...n, is_read: 1 } : n);
-                const nextUnread = next.filter(n => !(n.is_read === 1 || n.is_read === true || n.is_read === '1')).length;
+                const nextUnread = next.filter(n => !isNotifRead(n)).length;
                 setUnreadCount(nextUnread);
                 return next;
             });
@@ -184,27 +187,30 @@ const AdminLayout = () => {
                                         <div className="px-4 py-4 text-gray-500 text-sm text-center">No notifications</div>
                                     ) : (
                                         <div className="max-h-96 overflow-y-auto">
-                                            {notifications.map(notif => (
-                                                <div 
-                                                    key={notif.id} 
-                                                    onClick={(e) => !notif.is_read && markAsRead(notif.id, e)}
-                                                    className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${notif.is_read ? 'opacity-60' : 'bg-blue-50'}`}
-                                                >
-                                                    <div className="flex justify-between items-start">
-                                                        <p className="text-sm text-gray-800">{notif.message}</p>
-                                                        {!notif.is_read && (
-                                                            <button 
-                                                                onClick={(e) => markAsRead(notif.id, e)}
-                                                                className="text-blue-600 hover:text-blue-800 ml-2"
-                                                                title="Mark as read"
-                                                            >
-                                                                <Check size={16} />
-                                                            </button>
-                                                        )}
+                                            {notifications.map(notif => {
+                                                const isRead = isNotifRead(notif);
+                                                return (
+                                                    <div 
+                                                        key={notif.id} 
+                                                        onClick={(e) => !isRead && markAsRead(notif.id, e)}
+                                                        className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${isRead ? 'opacity-60' : 'bg-blue-50'}`}
+                                                    >
+                                                        <div className="flex justify-between items-start">
+                                                            <p className="text-sm text-gray-800">{notif.message}</p>
+                                                            {!isRead && (
+                                                                <button 
+                                                                    onClick={(e) => markAsRead(notif.id, e)}
+                                                                    className="text-blue-600 hover:text-blue-800 ml-2"
+                                                                    title="Mark as read"
+                                                                >
+                                                                    <Check size={16} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 mt-1">{new Date(notif.created_at).toLocaleString()}</p>
                                                     </div>
-                                                    <p className="text-xs text-gray-500 mt-1">{new Date(notif.created_at).toLocaleString()}</p>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>
