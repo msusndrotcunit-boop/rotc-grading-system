@@ -23,7 +23,7 @@ const AdminLayout = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setNotifications(res.data);
-            setUnreadCount(res.data.filter(n => !n.is_read).length);
+            setUnreadCount(res.data.filter(n => !(n.is_read === 1 || n.is_read === true || n.is_read === '1')).length);
         } catch (err) {
             console.error("Error fetching notifications", err);
         }
@@ -42,9 +42,13 @@ const AdminLayout = () => {
             await axios.put(`/api/admin/notifications/${id}/read`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // Update local state
-            setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
-            setUnreadCount(prev => Math.max(0, prev - 1));
+            // Update local state and recompute count robustly
+            setNotifications(prev => {
+                const next = prev.map(n => n.id === id ? { ...n, is_read: 1 } : n);
+                const nextUnread = next.filter(n => !(n.is_read === 1 || n.is_read === true || n.is_read === '1')).length;
+                setUnreadCount(nextUnread);
+                return next;
+            });
         } catch (err) {
             console.error("Error marking read", err);
         }
