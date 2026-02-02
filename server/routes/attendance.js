@@ -247,6 +247,46 @@ const extractFromRaw = (line) => {
     const rawLine = line.trim();
     if (!rawLine) return row;
 
+    // --- NEW: Structured Parsing for PDF/Text imports matching user requirements ---
+    // Format: "Cadet Name  Username  Program/Course  Status"
+    // Anchor: Program/Course (Basic/MS1, Basic/MS2, Advance/MS31, etc.)
+    const programRegex = /\b(Basic\/MS1|Basic\/MS2|Advance\/MS31|Advance\/MS32|Advance\/MS41|Advance\/MS42)\b/i;
+    const match = rawLine.match(programRegex);
+
+    if (match) {
+        const programIndex = match.index;
+        const programStr = match[0];
+
+        // 1. Extract Status (After Program)
+        const postProgram = rawLine.substring(programIndex + programStr.length).trim();
+        const lowerPost = postProgram.toLowerCase();
+        
+        if (lowerPost.includes('present')) row['Status'] = 'present';
+        else if (lowerPost.includes('absent')) row['Status'] = 'absent';
+        else if (lowerPost.includes('excused')) row['Status'] = 'excused';
+        else row['Status'] = 'present'; // Default if status is missing/unclear in the suffix? Or let generic logic handle it?
+        // The user said: "If present... present. If absent... absent." implied explicit. 
+        // We'll set it here.
+
+        // 2. Extract Name (Before Program, removing Username)
+        // "Cadet Name Username" -> We need to strip the last word (Username)
+        const preProgram = rawLine.substring(0, programIndex).trim();
+        const lastSpaceIndex = preProgram.lastIndexOf(' ');
+        
+        if (lastSpaceIndex !== -1) {
+            // Assume the last token is the Username and everything before is the Name
+            row['Name'] = preProgram.substring(0, lastSpaceIndex).trim();
+        } else {
+            // Fallback: If no space, maybe just Name (no username?) or just Username?
+            // If the user guarantees the format, this shouldn't happen for valid rows.
+            row['Name'] = preProgram;
+        }
+
+        return row;
+    }
+
+    // --- Fallback to Generic Heuristic Parsing ---
+
     // Status keywords
     const lowerLine = rawLine.toLowerCase();
     if (lowerLine.includes('present')) row['Status'] = 'present';
