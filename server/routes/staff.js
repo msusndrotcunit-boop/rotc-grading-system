@@ -71,7 +71,7 @@ router.put('/profile', authenticateToken, (req, res) => {
         facebook_link = COALESCE(?, facebook_link),
         rotc_unit = COALESCE(?, rotc_unit),
         mobilization_center = COALESCE(?, mobilization_center),
-        is_profile_completed = 1
+        is_profile_completed = COALESCE(?, is_profile_completed)
         WHERE id = ?`;
     
     const params = [
@@ -80,6 +80,7 @@ router.put('/profile', authenticateToken, (req, res) => {
         address, civil_status, nationality, gender, language_spoken, 
         combat_boots_size, uniform_size, bullcap_size, facebook_link, 
         rotc_unit, mobilization_center,
+        req.body.is_profile_completed !== undefined ? req.body.is_profile_completed : null,
         req.user.staffId
     ];
     

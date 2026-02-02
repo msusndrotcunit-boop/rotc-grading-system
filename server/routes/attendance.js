@@ -174,6 +174,77 @@ router.post('/mark', authenticateToken, isAdmin, (req, res) => {
     });
 });
 
+// Staff Attendance Scan Endpoint
+router.post('/staff/scan', authenticateToken, isAdmin, (req, res) => {
+    const { dayId, qrData } = req.body;
+    
+    try {
+        let staffData;
+        try {
+            staffData = JSON.parse(qrData);
+        } catch (e) {
+            // If not JSON, try to handle or fail
+            // Sometimes QR might be just ID? Assuming JSON from StaffProfile.jsx
+             return res.status(400).json({ message: 'Invalid QR Code format' });
+        }
+
+        const staffId = staffData.id;
+        if (!staffId) return res.status(400).json({ message: 'Invalid Staff ID in QR Code' });
+
+        // Verify Staff Exists
+        db.get('SELECT id, first_name, last_name, rank, afpsn FROM training_staff WHERE id = ?', [staffId], (err, staff) => {
+            if (err) return res.status(500).json({ message: err.message });
+            if (!staff) return res.status(404).json({ message: 'Staff not found' });
+
+            // Mark Attendance
+            const status = 'present';
+            const remarks = 'Scanned via QR';
+
+            db.get('SELECT id FROM staff_attendance_records WHERE training_day_id = ? AND staff_id = ?', [dayId, staffId], (err, row) => {
+                if (err) return res.status(500).json({ message: err.message });
+
+                if (row) {
+                    // Update
+                    db.run('UPDATE staff_attendance_records SET status = ?, remarks = ? WHERE id = ?', 
+                        [status, remarks, row.id], 
+                        (err) => {
+                            if (err) return res.status(500).json({ message: err.message });
+                            res.json({ 
+                                message: 'Staff attendance updated', 
+                                status: status,
+                                staff: { 
+                                    name: `${staff.rank} ${staff.first_name} ${staff.last_name}`,
+                                    afpsn: staff.afpsn || 'N/A'
+                                } 
+                            });
+                        }
+                    );
+                } else {
+                    // Insert
+                    db.run('INSERT INTO staff_attendance_records (training_day_id, staff_id, status, remarks) VALUES (?, ?, ?, ?)', 
+                        [dayId, staffId, status, remarks], 
+                        (err) => {
+                            if (err) return res.status(500).json({ message: err.message });
+                            res.json({ 
+                                message: 'Staff attendance recorded', 
+                                status: status,
+                                staff: { 
+                                    name: `${staff.rank} ${staff.first_name} ${staff.last_name}`,
+                                    afpsn: staff.afpsn || 'N/A'
+                                } 
+                            });
+                        }
+                    );
+                }
+            });
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Server Error processing scan' });
+    }
+});
+
 // Helper to update total attendance count in grades table
 function updateTotalAttendance(cadetId, res) {
     // Count 'present' and 'excused' records
