@@ -650,6 +650,51 @@ router.get('/settings/cadet-source', (req, res) => {
     });
 });
 
+// PUT /api/admin/system-settings - Update system-wide settings (admin only)
+router.put('/system-settings', (req, res) => {
+    const {
+        email_alerts,
+        push_notifications,
+        activity_updates,
+        dark_mode,
+        compact_mode,
+        primary_color
+    } = req.body || {};
+    
+    const entries = [
+        { key: 'email_alerts_default', value: email_alerts },
+        { key: 'push_notifications_default', value: push_notifications },
+        { key: 'activity_updates_default', value: activity_updates },
+        { key: 'dark_mode_default', value: dark_mode },
+        { key: 'compact_mode_default', value: compact_mode },
+        { key: 'primary_color', value: primary_color || 'blue' }
+    ];
+    
+    const upsert = (key, value) => new Promise((resolve, reject) => {
+        // Normalize booleans to '1'/'0' strings for consistency across DBs
+        let val = value;
+        if (typeof value === 'boolean') val = value ? '1' : '0';
+        db.get("SELECT id FROM system_settings WHERE key = ?", [key], (err, row) => {
+            if (err) return reject(err);
+            if (row) {
+                db.run("UPDATE system_settings SET value = ? WHERE key = ?", [val, key], (uErr) => {
+                    if (uErr) return reject(uErr);
+                    resolve();
+                });
+            } else {
+                db.run("INSERT INTO system_settings (key, value) VALUES (?, ?)", [key, val], (iErr) => {
+                    if (iErr) return reject(iErr);
+                    resolve();
+                });
+            }
+        });
+    });
+    
+    Promise.all(entries.map(e => upsert(e.key, e.value)))
+        .then(() => res.json({ message: 'System settings updated' }))
+        .catch((error) => res.status(500).json({ message: error.message }));
+});
+
 // Helper: Transmuted Grade Logic
 const calculateTransmutedGrade = (finalGrade, status) => {
     // Priority to status

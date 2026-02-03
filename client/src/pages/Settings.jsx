@@ -37,10 +37,15 @@ const Settings = ({ role }) => {
         <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
                 <PaintBucket className="text-blue-600" />
-                App Settings ({role})
+                System Settings ({role})
             </h2>
 
             <div className="space-y-8">
+                {role !== 'admin' && (
+                    <div className="p-3 rounded bg-yellow-50 text-yellow-800 text-sm">
+                        Only administrators can save system settings. Changes here affect all users.
+                    </div>
+                )}
                 {/* Notifications Settings */}
                 <section>
                     <h3 className="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
@@ -135,11 +140,11 @@ const Settings = ({ role }) => {
                 <div className="pt-6 border-t border-gray-200">
                     <button
                         onClick={handleSave}
-                        disabled={saving}
+                        disabled={saving || role !== 'admin'}
                         className="flex items-center justify-center space-x-2 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
                     >
                         <Save size={20} />
-                        <span>{saving ? 'Saving...' : 'Save Settings'}</span>
+                        <span>{saving ? 'Saving...' : role !== 'admin' ? 'Admin Only' : 'Save Settings'}</span>
                     </button>
                 </div>
             </div>

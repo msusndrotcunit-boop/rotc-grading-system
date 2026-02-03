@@ -102,6 +102,33 @@ router.put('/settings', authenticateToken, (req, res) => {
     });
 });
 
+// GET /api/auth/system-settings - Fetch system-wide settings (defaults applied to all users)
+router.get('/system-settings', authenticateToken, (req, res) => {
+    const keys = [
+        'email_alerts_default',
+        'push_notifications_default',
+        'activity_updates_default',
+        'dark_mode_default',
+        'compact_mode_default',
+        'primary_color'
+    ];
+    db.all("SELECT key, value FROM system_settings WHERE key IN (?, ?, ?, ?, ?, ?)", keys, (err, rows) => {
+        if (err) return res.status(500).json({ message: err.message });
+        const map = {};
+        (rows || []).forEach(r => { map[r.key] = r.value; });
+        const toBool = (v) => v === 1 || v === '1' || v === true || (typeof v === 'string' && v.toLowerCase() === 'true');
+        const settings = {
+            email_alerts: toBool(map.email_alerts_default ?? '1'),
+            push_notifications: toBool(map.push_notifications_default ?? '1'),
+            activity_updates: toBool(map.activity_updates_default ?? '1'),
+            dark_mode: toBool(map.dark_mode_default ?? '0'),
+            compact_mode: toBool(map.compact_mode_default ?? '0'),
+            primary_color: map.primary_color ?? 'blue'
+        };
+        res.json(settings);
+    });
+});
+
 // Login
 router.post('/login', (req, res) => {
     const { username, password } = req.body;
