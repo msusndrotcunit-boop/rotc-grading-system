@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, User, LogOut, Menu, X, Info, Home as HomeIcon, Settings } from 'lucide-react';
+import { LayoutDashboard, User, LogOut, Menu, X, Info, Home as HomeIcon, Settings, Lock } from 'lucide-react';
 import clsx from 'clsx';
 
 const StaffLayout = () => {
-    const { logout } = useAuth();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    // Redirect to profile if not completed and trying to access other pages
+    React.useEffect(() => {
+        if (user && !user.isProfileCompleted && location.pathname !== '/staff/profile') {
+            navigate('/staff/profile');
+        }
+    }, [user, location.pathname, navigate]);
 
     const handleLogout = () => {
         logout();
