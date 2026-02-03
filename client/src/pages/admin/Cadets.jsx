@@ -169,6 +169,7 @@ const Cadets = () => {
             suffixName: cadet.suffix_name || '',
             studentId: cadet.student_id || '',
             email: cadet.email || '',
+            username: cadet.username || '',
             contactNumber: cadet.contact_number || '',
             address: cadet.address || '',
             course: cadet.course || '',
@@ -759,6 +760,9 @@ const Cadets = () => {
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <input className="border p-2 rounded" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} placeholder="Email" />
+                                <input className="border p-2 rounded" value={editForm.username} onChange={e => setEditForm({...editForm, username: e.target.value})} placeholder="Username" />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <input className="border p-2 rounded" value={editForm.contactNumber} onChange={e => setEditForm({...editForm, contactNumber: e.target.value})} placeholder="Contact Number" />
                             </div>
 

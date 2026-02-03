@@ -895,7 +895,8 @@ router.put('/cadets/:id', (req, res) => {
         studentId, email, contactNumber, address, 
         course, yearLevel, schoolYear, 
         battalion, company, platoon, 
-        cadetCourse, semester, status 
+        cadetCourse, semester, status,
+        username // Add username to destructuring
     } = req.body;
 
     const sql = `UPDATE cadets SET 
@@ -919,12 +920,32 @@ router.put('/cadets/:id', (req, res) => {
             if (err) return res.status(500).json({ message: err.message });
             
             // Sync with Users table (Email/Username)
-            // If email or first name changed, we might want to update user credentials,
-            // but for now, let's at least sync the email so they can login with it.
-            if (email) {
-                db.run(`UPDATE users SET email = ? WHERE cadet_id = ?`, [email, req.params.id], (uErr) => {
-                    if (uErr) console.error("Error syncing user email:", uErr);
-                });
+            // Update email and username if provided
+            if (email || username) {
+                let updateFields = [];
+                let updateParams = [];
+
+                if (email) {
+                    updateFields.push("email = ?");
+                    updateParams.push(email);
+                }
+                if (username) {
+                    updateFields.push("username = ?");
+                    updateParams.push(username);
+                }
+
+                if (updateFields.length > 0) {
+                    updateParams.push(req.params.id);
+                    const userSql = `UPDATE users SET ${updateFields.join(", ")} WHERE cadet_id = ?`;
+                    
+                    db.run(userSql, updateParams, (uErr) => {
+                        if (uErr) {
+                            console.error("Error syncing user credentials:", uErr);
+                            // If username is taken, this might fail silently or we should warn?
+                            // For now we log it. In a real app we might want to return a warning.
+                        }
+                    });
+                }
             }
 
             res.json({ message: 'Cadet updated' });

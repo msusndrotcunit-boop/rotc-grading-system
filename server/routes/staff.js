@@ -60,7 +60,13 @@ router.get('/analytics/overview', authenticateToken, isAdmin, (req, res) => {
 
 // GET All Staff (Admin)
 router.get('/', authenticateToken, isAdmin, (req, res) => {
-    db.all("SELECT * FROM training_staff ORDER BY last_name ASC", [], (err, rows) => {
+    const sql = `
+        SELECT s.*, u.username 
+        FROM training_staff s 
+        LEFT JOIN users u ON u.staff_id = s.id 
+        ORDER BY s.last_name ASC
+    `;
+    db.all(sql, [], (err, rows) => {
         if (err) return res.status(500).json({ message: err.message });
         res.json(rows);
     });
@@ -243,70 +249,104 @@ router.post('/', authenticateToken, isAdmin, async (req, res) => {
     db.run(sql, params, async function(err) {
         if (err) return res.status(500).json({ message: err.message });
         
-        // Check if DB adapter returns ID directly or via this.lastID (SQLite)
-        // In my adapter, INSERT returns ID if simulated, but for SQLite it's this.lastID.
-        // The adapter in database.js for Postgres calls callback with context { lastID: ... }
-        // So `this.lastID` should work.
         const staffId = this.lastID;
 
         // 2. Create User Account
-        const defaultPassword = 'staffpassword'; 
-        
-        try {
-            const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-            
-            // Clean names for username generation
-            const cleanLast = last_name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+        // Check for First Name collision to determine credentials
+        db.get("SELECT COUNT(*) as count FROM training_staff WHERE first_name = ? COLLATE NOCASE", [first_name], async (err, row) => {
+            if (err) {
+                console.error("Error checking name collision:", err);
+                // Fallback to default behavior if check fails
+            }
+
+            const nameCount = row ? row.count : 1;
             const cleanFirst = first_name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            const cleanLast = last_name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
-            // Recursive function to handle username collisions
-            // Priority: Last Name -> First Name -> Last.First -> Last + Random
-            const tryInsertUser = (attemptStage, currentUsername) => {
-                const userSql = `INSERT INTO users (username, password, role, staff_id, is_approved, email, profile_pic) VALUES (?, ?, 'training_staff', ?, 1, ?, ?)`;
+            // Credential Rule: 
+            // If First Name is unique (count == 1, just the one we added), use First Name.
+            // If First Name is NOT unique (count > 1), use Last Name.
+            let passwordStr = (nameCount > 1) ? cleanLast : cleanFirst;
+            let usernameBase = (nameCount > 1) ? cleanLast : cleanFirst;
+
+            try {
+                const hashedPassword = await bcrypt.hash(passwordStr, 10);
                 
-                db.run(userSql, [currentUsername, hashedPassword, staffId, email, profile_pic], (uErr) => {
-                    if (uErr) {
-                         if (uErr.message.includes('UNIQUE constraint') || uErr.message.includes('duplicate key')) {
-                             console.log(`Username ${currentUsername} taken. Trying next option...`);
-                             
-                             if (attemptStage === 1) {
-                                 // Failed Last Name, try First Name
-                                 tryInsertUser(2, cleanFirst);
-                             } else if (attemptStage === 2) {
-                                 // Failed First Name, try First.Last
-                                 tryInsertUser(3, `${cleanFirst}.${cleanLast}`);
+                // Recursive function to handle username collisions
+                // We start with the determined usernameBase.
+                // If that fails, we fallback to standard patterns (First.Last, etc.)
+                const tryInsertUser = (attemptStage, currentUsername) => {
+                    const userSql = `INSERT INTO users (username, password, role, staff_id, is_approved, email, profile_pic) VALUES (?, ?, 'training_staff', ?, 1, ?, ?)`;
+                    
+                    db.run(userSql, [currentUsername, hashedPassword, staffId, email, profile_pic], (uErr) => {
+                        if (uErr) {
+                             if (uErr.message.includes('UNIQUE constraint') || uErr.message.includes('duplicate key')) {
+                                 console.log(`Username ${currentUsername} taken. Trying next option...`);
+                                 
+                                 // Fallback strategies
+                                 if (attemptStage === 1) {
+                                     // If preference failed, try First.Last
+                                     tryInsertUser(2, `${cleanFirst}.${cleanLast}`);
+                                 } else if (attemptStage === 2) {
+                                     // Try Last.First
+                                     tryInsertUser(3, `${cleanLast}.${cleanFirst}`);
+                                 } else {
+                                     // Append random number to base
+                                     const newUsername = usernameBase + Math.floor(Math.random() * 1000);
+                                     tryInsertUser(4, newUsername);
+                                 }
                              } else {
-                                 // Failed all standard options, append random number to Last Name
-                                 const newUsername = cleanLast + Math.floor(Math.random() * 1000);
-                                 tryInsertUser(4, newUsername);
+                                console.error('Error creating user for staff:', uErr);
+                                return res.json({ message: 'Staff profile created, but user account creation failed. ' + uErr.message, id: staffId });
                              }
-                         } else {
-                            console.error('Error creating user for staff:', uErr);
-                            // Don't fail the request, just warn
-                            return res.json({ message: 'Staff profile created, but user account creation failed. ' + uErr.message, id: staffId });
-                         }
-                    } else {
-                        res.json({ message: `Staff created successfully. Username: ${currentUsername}, Password: "${defaultPassword}"`, id: staffId });
-                    }
-                });
-            };
+                        } else {
+                            res.json({ message: `Staff created successfully. Username: ${currentUsername}, Password: "${passwordStr}"`, id: staffId });
+                        }
+                    });
+                };
 
-            // Start with Last Name (Stage 1)
-            tryInsertUser(1, cleanLast);
+                // Start with determined base (Stage 1)
+                tryInsertUser(1, usernameBase);
 
-        } catch (hashErr) {
-            res.status(500).json({ message: 'Error hashing password' });
-        }
+            } catch (hashErr) {
+                res.status(500).json({ message: 'Error hashing password' });
+            }
+        });
     });
 });
 
 // UPDATE Staff
 router.put('/:id', authenticateToken, isAdmin, (req, res) => {
-    const { rank, first_name, middle_name, last_name, suffix_name, email, contact_number, role, profile_pic } = req.body;
+    const { rank, first_name, middle_name, last_name, suffix_name, email, contact_number, role, profile_pic, username } = req.body;
     const sql = `UPDATE training_staff SET rank = ?, first_name = ?, middle_name = ?, last_name = ?, suffix_name = ?, email = ?, contact_number = ?, role = ?, profile_pic = ? WHERE id = ?`;
     
     db.run(sql, [rank, first_name, middle_name, last_name, suffix_name, email, contact_number, role, profile_pic, req.params.id], function(err) {
         if (err) return res.status(500).json({ message: err.message });
+
+        // Update User Account (Username/Email)
+        if (email || username) {
+            let updateFields = [];
+            let updateParams = [];
+
+            if (email) {
+                updateFields.push("email = ?");
+                updateParams.push(email);
+            }
+            if (username) {
+                updateFields.push("username = ?");
+                updateParams.push(username);
+            }
+
+            if (updateFields.length > 0) {
+                updateParams.push(req.params.id);
+                const userSql = `UPDATE users SET ${updateFields.join(", ")} WHERE staff_id = ?`;
+                
+                db.run(userSql, updateParams, (uErr) => {
+                    if (uErr) console.error("Error syncing staff user credentials:", uErr);
+                });
+            }
+        }
+
         res.json({ message: 'Staff updated successfully' });
     });
 });

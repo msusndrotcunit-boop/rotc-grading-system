@@ -309,13 +309,6 @@ const StaffProfile = () => {
                                 >
                                     <X size={20} />
                                 </button>
-                                <button 
-                                    onClick={handleSubmit}
-                                    className="bg-blue-500/80 hover:bg-blue-600 text-white p-2 rounded-full backdrop-blur-sm transition-colors"
-                                    title="Save Changes"
-                                >
-                                    <Save size={20} />
-                                </button>
                             </>
                         ) : (
                             !profile.is_profile_completed ? (
@@ -344,7 +337,10 @@ const StaffProfile = () => {
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
-                                    <User size={64} className="text-green-200" />
+                                    <div className="flex flex-col items-center justify-center text-center p-2">
+                                        <User size={48} className="text-green-200 mb-1" />
+                                        <span className="text-[10px] leading-tight text-white font-medium opacity-80">Click here to upload</span>
+                                    </div>
                                 )}
                                 
                                 {/* Camera Overlay */}
@@ -546,6 +542,19 @@ const StaffProfile = () => {
                         )}
                     </div>
                 </div>
+                
+                {isEditing && (
+                    <div className="flex justify-end mt-6">
+                        <button 
+                            onClick={handleSubmit}
+                            className="bg-green-700 hover:bg-green-800 text-white px-8 py-3 rounded-lg shadow-lg flex items-center text-lg font-bold transition-transform transform hover:scale-105"
+                            title="Save Changes"
+                        >
+                            <Save size={24} className="mr-2" />
+                            Save Profile
+                        </button>
+                    </div>
+                )}
             </form>
         </div>
     );

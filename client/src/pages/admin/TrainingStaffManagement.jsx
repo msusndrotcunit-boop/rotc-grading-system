@@ -93,6 +93,7 @@ const TrainingStaffManagement = () => {
             last_name: staff.last_name || '',
             suffix_name: staff.suffix_name || '',
             email: staff.email || '',
+            username: staff.username || '',
             contact_number: staff.contact_number || '',
             role: staff.role || 'Instructor'
         });
@@ -355,6 +356,10 @@ const TrainingStaffManagement = () => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Email</label>
                                 <input type="email" className="w-full border p-2 rounded" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Username</label>
+                                <input className="w-full border p-2 rounded" value={editForm.username} onChange={e => setEditForm({...editForm, username: e.target.value})} />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Contact Number</label>
