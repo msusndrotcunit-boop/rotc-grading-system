@@ -31,6 +31,22 @@ const StaffAnalytics = () => {
         }
     };
 
+    // Process rank data
+    const chartData = useMemo(() => {
+        if (!stats.staffByRank || stats.staffByRank.length === 0) return [];
+        
+        const merged = {};
+        stats.staffByRank.forEach(r => {
+            const keyRaw = (r.rank || 'Unverified').trim();
+            const key = keyRaw.split(' ')
+                .filter(Boolean)
+                .map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
+                .join(' ');
+            merged[key] = (merged[key] || 0) + (r.count || 0);
+        });
+        return Object.entries(merged).map(([rank, count]) => ({ rank, count }));
+    }, [stats.staffByRank]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
@@ -101,19 +117,7 @@ const StaffAnalytics = () => {
                     {stats.staffByRank.length > 0 ? (
                         <div className="h-64">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={useMemo(() => {
-                                    // Normalize and merge duplicate ranks (trim + title case)
-                                    const merged = {};
-                                    stats.staffByRank.forEach(r => {
-                                        const keyRaw = (r.rank || 'Unverified').trim();
-                                        const key = keyRaw.split(' ')
-                                            .filter(Boolean)
-                                            .map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())
-                                            .join(' ');
-                                        merged[key] = (merged[key] || 0) + (r.count || 0);
-                                    });
-                                    return Object.entries(merged).map(([rank, count]) => ({ rank, count }));
-                                }, [stats.staffByRank])}>
+                                <BarChart data={chartData}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="rank" />
                                     <YAxis />

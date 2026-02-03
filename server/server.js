@@ -21,8 +21,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Web Push Configuration
-const publicVapidKey = process.env.VAPID_PUBLIC_KEY || 'BC0F3z4K3yN-eZ4oG296w3VzJ51WSVbze3RnebuSqaO0J2c3ORYOe1wDQCZWL7cmgEX_iq3WCmuDag8';
-const privateVapidKey = process.env.VAPID_PRIVATE_KEY || 'G_tM3pdZUobx2V3C70UIU5ZYbxbq-fzyf0aqu2VC8JI';
+const publicVapidKey = process.env.VAPID_PUBLIC_KEY || 'BD2dXhUwhD5lQGW7ZJcuRji6ZyNeGo7T4VoX1DK2mCcsXs8ZpvYFM_t5KE2DyHAcVchDecw2kPpZZtNsL5BlgH8';
+const privateVapidKey = process.env.VAPID_PRIVATE_KEY || 'K2XLvvSJF0h98grs0_2Aqw-4UTg89Euy01Z83eQLuD4';
 
 webpush.setVapidDetails(
     'mailto:msusndrotcunit@gmail.com',
