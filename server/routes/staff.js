@@ -389,7 +389,7 @@ router.get('/chat/messages', authenticateToken, (req, res) => {
     }
     const sql = `
         SELECT m.id, m.content, m.created_at, 
-               s.id as staff_id, s.first_name, s.last_name, s.rank
+               s.id as staff_id, s.first_name, s.last_name, s.rank, s.profile_pic
         FROM staff_messages m
         JOIN training_staff s ON s.id = m.sender_staff_id
         ORDER BY m.id DESC
@@ -399,6 +399,25 @@ router.get('/chat/messages', authenticateToken, (req, res) => {
         if (err) return res.status(500).json({ message: err.message });
         // Return in ascending order by time for UI display
         res.json(rows.reverse());
+    });
+});
+
+// Get latest message for polling/notifications
+router.get('/chat/latest', authenticateToken, (req, res) => {
+    if (req.user.role !== 'training_staff' && req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Access denied.' });
+    }
+    const sql = `
+        SELECT m.id, m.content, m.created_at, 
+               s.first_name, s.last_name, s.rank
+        FROM staff_messages m
+        JOIN training_staff s ON s.id = m.sender_staff_id
+        ORDER BY m.id DESC
+        LIMIT 1
+    `;
+    db.get(sql, [], (err, row) => {
+        if (err) return res.status(500).json({ message: err.message });
+        res.json(row || null);
     });
 });
 

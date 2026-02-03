@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, User, LogOut, Menu, X, Info, Home as HomeIcon, Settings, Lock, MessageCircle } from 'lucide-react';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import clsx from 'clsx';
 
 const StaffLayout = () => {
@@ -24,6 +25,57 @@ const StaffLayout = () => {
     };
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+    // Poll for new messages and show notification
+    React.useEffect(() => {
+        const checkMessages = async () => {
+            // Only check if logged in and user has a staff profile (or is admin/staff)
+            if (!user) return;
+            
+            try {
+                const res = await axios.get('/api/staff/chat/latest');
+                const msg = res.data;
+                if (!msg) return;
+
+                const lastSeen = parseInt(localStorage.getItem('lastSeenMessageId') || '0');
+                const lastNotified = parseInt(sessionStorage.getItem('lastNotifiedMessageId') || '0');
+
+                // If new message exists and we haven't seen it AND haven't notified about it yet
+                if (msg.id > lastSeen && msg.id > lastNotified) {
+                    // Don't notify if we are currently on the communication page
+                    if (location.pathname !== '/staff/communication') {
+                        toast((t) => (
+                            <div onClick={() => {
+                                navigate('/staff/communication');
+                                toast.dismiss(t.id);
+                            }} className="cursor-pointer flex flex-col min-w-[200px]">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <MessageCircle size={16} className="text-green-600" />
+                                    <span className="font-bold text-gray-800 text-sm">New Message</span>
+                                </div>
+                                <span className="font-semibold text-xs text-green-700">{msg.rank} {msg.last_name}</span>
+                                <span className="text-sm text-gray-600 truncate">{msg.content}</span>
+                            </div>
+                        ), {
+                            duration: 5000,
+                            position: 'top-right',
+                            style: {
+                                border: '1px solid #4ade80',
+                                padding: '10px',
+                                background: '#fff',
+                            },
+                        });
+                        sessionStorage.setItem('lastNotifiedMessageId', msg.id.toString());
+                    }
+                }
+            } catch (err) {
+                // Silent fail (network error, etc)
+            }
+        };
+
+        const interval = setInterval(checkMessages, 5000); // Check every 5 seconds
+        return () => clearInterval(interval);
+    }, [user, location.pathname, navigate]);
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden">
