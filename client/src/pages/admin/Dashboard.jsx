@@ -95,7 +95,12 @@ const Dashboard = () => {
         // By Company
         const companyCount = {};
         cadets.forEach(c => {
-            const company = c.company?.trim() || 'Unverified';
+            let company = c.company?.trim();
+            if (company === '. . . . . . . .') {
+                company = 'Advance Officer';
+            } else if (!company) {
+                company = 'Unverified';
+            }
             companyCount[company] = (companyCount[company] || 0) + 1;
         });
         const companyData = Object.keys(companyCount).map(key => ({
