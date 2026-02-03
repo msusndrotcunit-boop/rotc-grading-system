@@ -3,6 +3,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, User, LogOut, Menu, X, Info, Home as HomeIcon, Settings } from 'lucide-react';
 import clsx from 'clsx';
+import { Toaster } from 'react-hot-toast';
 
 const CadetLayout = () => {
     const { logout, user } = useAuth();
@@ -26,6 +27,7 @@ const CadetLayout = () => {
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden">
+             <Toaster position="top-right" reverseOrder={false} />
              {/* Mobile Sidebar Overlay */}
              {isSidebarOpen && (
                 <div 

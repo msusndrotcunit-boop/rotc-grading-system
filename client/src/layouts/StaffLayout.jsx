@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, User, LogOut, Menu, X, Info, Home as HomeIcon, Settings, Lock } from 'lucide-react';
+import { Toaster } from 'react-hot-toast';
 import clsx from 'clsx';
 
 const StaffLayout = () => {
@@ -26,6 +27,7 @@ const StaffLayout = () => {
 
     return (
         <div className="flex h-screen bg-gray-100 overflow-hidden">
+            <Toaster position="top-right" reverseOrder={false} />
              {/* Mobile Sidebar Overlay */}
              {isSidebarOpen && (
                 <div 

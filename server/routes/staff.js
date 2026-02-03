@@ -331,4 +331,14 @@ router.delete('/:id', authenticateToken, isAdmin, (req, res) => {
     });
 });
 
+// Acknowledge User Guide
+router.post('/acknowledge-guide', authenticateToken, (req, res) => {
+    if (!req.user.staffId) return res.status(403).json({ message: 'Access denied.' });
+    
+    db.run("UPDATE training_staff SET has_seen_guide = 1 WHERE id = ?", [req.user.staffId], (err) => {
+        if (err) return res.status(500).json({ message: err.message });
+        res.json({ message: 'User guide acknowledged' });
+    });
+});
+
 module.exports = router;

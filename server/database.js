@@ -104,7 +104,8 @@ if (isPostgres) {
         { name: 'facebook_link', type: 'TEXT' },
         { name: 'rotc_unit', type: 'TEXT' },
         { name: 'mobilization_center', type: 'TEXT' },
-        { name: 'is_profile_completed', type: 'INTEGER DEFAULT 0' }
+        { name: 'is_profile_completed', type: 'INTEGER DEFAULT 0' },
+        { name: 'has_seen_guide', type: 'INTEGER DEFAULT 0' }
     ];
 
     staffColumns.forEach(col => {
@@ -122,6 +123,9 @@ if (isPostgres) {
             IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cadets' AND column_name='is_profile_completed') THEN 
                 ALTER TABLE cadets ADD COLUMN is_profile_completed BOOLEAN DEFAULT FALSE; 
             END IF; 
+            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='cadets' AND column_name='has_seen_guide') THEN 
+                ALTER TABLE cadets ADD COLUMN has_seen_guide BOOLEAN DEFAULT FALSE; 
+            END IF;
         END $$;
     `).catch(err => console.log('Migration info:', err.message));
 
@@ -179,6 +183,13 @@ if (isPostgres) {
 
             // Migration: Add is_profile_completed if missing
             db.run("ALTER TABLE cadets ADD COLUMN is_profile_completed INTEGER DEFAULT 0", (err) => {
+                if (err && !err.message.includes('duplicate column')) {
+                    console.log('Migration info:', err.message);
+                }
+            });
+
+            // Migration: Add has_seen_guide if missing
+            db.run("ALTER TABLE cadets ADD COLUMN has_seen_guide INTEGER DEFAULT 0", (err) => {
                 if (err && !err.message.includes('duplicate column')) {
                     console.log('Migration info:', err.message);
                 }
@@ -314,6 +325,7 @@ function initPgDb() {
             rotc_unit TEXT,
             mobilization_center TEXT,
             is_profile_completed BOOLEAN DEFAULT FALSE,
+            has_seen_guide BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`,
         `CREATE TABLE IF NOT EXISTS staff_attendance_records (
@@ -516,6 +528,7 @@ function initSqliteDb() {
             rotc_unit TEXT,
             mobilization_center TEXT,
             is_profile_completed INTEGER DEFAULT 0,
+            has_seen_guide INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )`);
 
