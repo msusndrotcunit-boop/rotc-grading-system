@@ -36,6 +36,28 @@ const isAdmin = (req, res, next) => {
     next();
 };
 
+// GET Staff Analytics (Admin)
+router.get('/analytics/overview', authenticateToken, isAdmin, (req, res) => {
+    const analytics = {};
+
+    db.get("SELECT COUNT(*) as total FROM training_staff", [], (err, row) => {
+        if (err) return res.status(500).json({ message: err.message });
+        analytics.totalStaff = row.total;
+
+        db.all("SELECT rank, COUNT(*) as count FROM training_staff GROUP BY rank", [], (err, rows) => {
+            if (err) return res.status(500).json({ message: err.message });
+            analytics.staffByRank = rows;
+
+            db.all("SELECT status, COUNT(*) as count FROM staff_attendance_records GROUP BY status", [], (err, rows) => {
+                if (err) return res.status(500).json({ message: err.message });
+                analytics.attendanceStats = rows;
+                
+                res.json(analytics);
+            });
+        });
+    });
+});
+
 // GET All Staff (Admin)
 router.get('/', authenticateToken, isAdmin, (req, res) => {
     db.all("SELECT * FROM training_staff ORDER BY last_name ASC", [], (err, rows) => {
