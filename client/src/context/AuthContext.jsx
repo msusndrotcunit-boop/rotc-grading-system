@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
             
             if (token) {
                 // Convert 'true'/'false' string back to boolean or null if undefined
-                const isCompleted = isProfileCompleted === 'true';
+                const isCompleted = isProfileCompleted === 'true' || isProfileCompleted === '1';
                 setUser({ token, role, cadetId, isProfileCompleted: isCompleted });
                 axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             }

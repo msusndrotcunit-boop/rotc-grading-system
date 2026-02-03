@@ -335,6 +335,9 @@ const StaffProfile = () => {
                                         src={getProfileImage()} 
                                         alt="Profile" 
                                         className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            console.error("Image load error:", e);
+                                        }}
                                     />
                                 ) : (
                                     <div className="flex flex-col items-center justify-center text-center p-2">

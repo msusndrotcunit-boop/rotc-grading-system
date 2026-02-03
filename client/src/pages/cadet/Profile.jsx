@@ -112,7 +112,10 @@ const Profile = () => {
             if (data.profile_pic.startsWith('data:')) {
                 setPreview(data.profile_pic);
             } else {
-                const normalizedPath = data.profile_pic.replace(/\\/g, '/');
+                let normalizedPath = data.profile_pic.replace(/\\/g, '/');
+                if (!normalizedPath.startsWith('/')) {
+                    normalizedPath = '/' + normalizedPath;
+                }
                 setPreview(`${import.meta.env.VITE_API_URL || ''}${normalizedPath}`);
             }
         }
