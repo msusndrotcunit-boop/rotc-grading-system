@@ -7,6 +7,11 @@ const StaffAttendanceScanner = () => {
     const [scanResult, setScanResult] = useState(null);
     const [trainingDays, setTrainingDays] = useState([]);
     const [selectedDay, setSelectedDay] = useState('');
+    
+    // New State for Modal
+    const [scannedData, setScannedData] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+
     const scannerRef = useRef(null);
     const selectedDayRef = useRef(selectedDay);
 
@@ -40,25 +45,55 @@ const StaffAttendanceScanner = () => {
     };
 
     useEffect(() => {
-        // Initialize scanner
-        // We use a small timeout to ensure DOM is ready
-        const timeoutId = setTimeout(() => {
-            const scanner = new Html5QrcodeScanner(
-                "reader",
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                /* verbose= */ false
-            );
+        let isMounted = true;
 
-            scanner.render(onScanSuccess, onScanFailure);
-            scannerRef.current = scanner;
-        }, 100);
+        const initScanner = async () => {
+            // Check if element exists
+            if (!document.getElementById("reader")) return;
+            
+            // If scanner exists, clear it first
+            if (scannerRef.current) {
+                try {
+                    await scannerRef.current.clear();
+                } catch (e) {
+                    console.error("Error clearing existing scanner:", e);
+                }
+                scannerRef.current = null;
+            }
+
+            if (!isMounted) return;
+
+            try {
+                const scanner = new Html5QrcodeScanner(
+                    "reader",
+                    { 
+                        fps: 10, 
+                        qrbox: { width: 250, height: 250 },
+                        aspectRatio: 1.0,
+                        showTorchButtonIfSupported: true
+                    },
+                    /* verbose= */ false
+                );
+
+                scanner.render(onScanSuccess, onScanFailure);
+                scannerRef.current = scanner;
+            } catch (err) {
+                console.error("Failed to initialize scanner:", err);
+                toast.error("Failed to start camera");
+            }
+        };
+
+        // Initialize scanner with a slight delay to ensure DOM is ready
+        const timeoutId = setTimeout(initScanner, 500);
 
         return () => {
+            isMounted = false;
             clearTimeout(timeoutId);
             if (scannerRef.current) {
                 scannerRef.current.clear().catch(error => {
                     console.error("Failed to clear html5-qrcode scanner. ", error);
                 });
+                scannerRef.current = null;
             }
         };
     }, []);
@@ -75,35 +110,60 @@ const StaffAttendanceScanner = () => {
         }
         
         try {
-            // Pause while processing
+            // Pause scanner immediately
             if (scannerRef.current) {
                 scannerRef.current.pause(true);
             }
 
+            // Try to parse JSON from QR
+            let data = {};
+            try {
+                data = JSON.parse(decodedText);
+            } catch (e) {
+                // If not JSON, assume it's just an ID? Or fail.
+                console.error("QR Parse Error", e);
+                // For now, if it's not JSON, we can't easily display a name unless we fetch it.
+                // But let's wrap it in an object to pass through.
+                data = { id: decodedText, name: 'Unknown Staff' }; 
+            }
+
+            setScannedData({ ...data, rawQr: decodedText });
+            setShowModal(true);
+
+        } catch (err) {
+            console.error(err);
+            toast.error("Scan processing failed");
+            if (scannerRef.current) scannerRef.current.resume();
+        }
+    };
+
+    const handleAttendanceAction = async (status) => {
+        if (!scannedData || !selectedDayRef.current) return;
+
+        try {
             const token = localStorage.getItem('token');
             const res = await axios.post('/api/attendance/staff/scan', {
                 dayId: selectedDayRef.current,
-                qrData: decodedText
+                qrData: scannedData.rawQr,
+                status: status
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             setScanResult(res.data);
-            toast.success(`Scanned: ${res.data.staff.name}`);
+            toast.success(`Marked as ${status.toUpperCase()}`);
             
-            // Resume after short delay
-            setTimeout(() => {
-                if (scannerRef.current) scannerRef.current.resume();
-            }, 1500);
-
         } catch (err) {
             console.error(err);
-            toast.error(err.response?.data?.message || "Scan failed");
-            
-            // Resume after short delay even on error
-            setTimeout(() => {
-                if (scannerRef.current) scannerRef.current.resume();
-            }, 1500);
+            toast.error(err.response?.data?.message || "Attendance update failed");
+        } finally {
+            // Close modal and resume scanner
+            setShowModal(false);
+            setScannedData(null);
+            if (scannerRef.current) {
+                // Resume after short delay to prevent immediate re-scan
+                setTimeout(() => scannerRef.current.resume(), 1000);
+            }
         }
     };
 

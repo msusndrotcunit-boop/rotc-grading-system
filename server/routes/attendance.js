@@ -176,7 +176,7 @@ router.post('/mark', authenticateToken, isAdmin, (req, res) => {
 
 // Staff Attendance Scan Endpoint
 router.post('/staff/scan', authenticateToken, isAdmin, (req, res) => {
-    const { dayId, qrData } = req.body;
+    const { dayId, qrData, status: providedStatus } = req.body;
     
     try {
         let staffData;
@@ -197,7 +197,7 @@ router.post('/staff/scan', authenticateToken, isAdmin, (req, res) => {
             if (!staff) return res.status(404).json({ message: 'Staff not found' });
 
             // Mark Attendance
-            const status = 'present';
+            const status = providedStatus || 'present';
             const remarks = 'Scanned via QR';
 
             db.get('SELECT id FROM staff_attendance_records WHERE training_day_id = ? AND staff_id = ?', [dayId, staffId], (err, row) => {
