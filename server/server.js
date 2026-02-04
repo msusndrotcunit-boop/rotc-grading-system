@@ -14,6 +14,7 @@ const excuseRoutes = require('./routes/excuse');
 const staffRoutes = require('./routes/staff');
 const integrationRoutes = require('./routes/integration');
 const notificationRoutes = require('./routes/notifications');
+const imageRoutes = require('./routes/images');
 const webpush = require('web-push');
 const { processUrlImport } = require('./utils/importCadets');
 const dbSettingsKey = 'cadet_list_source_url';
@@ -98,6 +99,7 @@ app.use('/api/excuse', excuseRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/integration', integrationRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/images', imageRoutes);
 
 // Create uploads directory if not exists
 const uploadDir = path.join(__dirname, 'uploads');

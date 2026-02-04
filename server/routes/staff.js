@@ -37,8 +37,16 @@ const isAdmin = (req, res, next) => {
     next();
 };
 
+const NodeCache = require('node-cache');
+const cache = new NodeCache({ stdTTL: 600 }); // Cache for 10 minutes
+
 // GET Staff Analytics (Admin)
 router.get('/analytics/overview', authenticateToken, isAdmin, (req, res) => {
+    const cachedStats = cache.get("staff_analytics");
+    if (cachedStats) {
+        return res.json(cachedStats);
+    }
+
     const analytics = {};
 
     db.get("SELECT COUNT(*) as total FROM training_staff", [], (err, row) => {
@@ -53,6 +61,7 @@ router.get('/analytics/overview', authenticateToken, isAdmin, (req, res) => {
                 if (err) return res.status(500).json({ message: err.message });
                 analytics.attendanceStats = rows;
                 
+                cache.set("staff_analytics", analytics);
                 res.json(analytics);
             });
         });
@@ -322,9 +331,10 @@ router.post('/', authenticateToken, isAdmin, async (req, res) => {
 
     const insertStaff = () => new Promise((resolve, reject) => {
         db.run(sql, params, function(err) {
-            if (err) return reject(err);
-            resolve(this.lastID);
-        });
+        if (err) return reject(err);
+        cache.del("staff_analytics"); // Invalidate cache
+        resolve(this.lastID);
+    });
     });
     
     let staffId;
@@ -463,7 +473,7 @@ router.get('/chat/messages', authenticateToken, (req, res) => {
     }
     const sql = `
         SELECT m.id, m.content, m.created_at, 
-               s.id as staff_id, s.first_name, s.last_name, s.rank, s.profile_pic
+               s.id as staff_id, s.first_name, s.last_name, s.rank
         FROM staff_messages m
         JOIN training_staff s ON s.id = m.sender_staff_id
         ORDER BY m.id DESC

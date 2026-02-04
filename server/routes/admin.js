@@ -751,52 +751,101 @@ router.get('/analytics', (req, res) => {
             if (err) return res.status(500).json({ message: err.message });
             const totalTrainingDays = countRow.total || 15; // Default to 15 if 0 to avoid division by zero (or handle gracefully)
 
-            // 2. Get Grade Stats (Reuse cadet grade logic)
-            const cadetsSql = `
-                SELECT c.*, 
-                       g.attendance_present, g.merit_points, g.demerit_points, 
+    // 2. Get Grade Stats (Optimize: Only fetch grade columns, exclude profile_pic/cadet info)
+            const gradesSql = `
+                SELECT g.attendance_present, g.merit_points, g.demerit_points, 
                        g.prelim_score, g.midterm_score, g.final_score, g.status as grade_status
-                FROM cadets c
-                JOIN users u ON u.cadet_id = c.id
-                LEFT JOIN grades g ON c.id = g.cadet_id
+                FROM grades g
+                JOIN users u ON u.cadet_id = g.cadet_id
                 WHERE u.is_approved = 1
             `;
 
-            db.all(cadetsSql, [], (err, cadetRows) => {
+            db.all(gradesSql, [], (err, gradeRows) => {
                 if (err) return res.status(500).json({ message: err.message });
 
-                cadetRows.forEach(cadet => {
+                gradeRows.forEach(gradeData => {
                     const safeTotalDays = totalTrainingDays > 0 ? totalTrainingDays : 1;
-                    const attendanceScore = (cadet.attendance_present / safeTotalDays) * 30;
+                    const attendanceScore = (gradeData.attendance_present / safeTotalDays) * 30;
                     
                     // Aptitude: Base 100 + Merits - Demerits (Capped at 100)
-                    // "The cadets have already 100 merit points... ceiling value will be up to 100 points only"
-                    // "Merit points minus demerit points then the result will be multiply by 30%"
-                    let rawAptitude = 100 + (cadet.merit_points || 0) - (cadet.demerit_points || 0);
+                    let rawAptitude = 100 + (gradeData.merit_points || 0) - (gradeData.demerit_points || 0);
                     if (rawAptitude > 100) rawAptitude = 100;
-                    // Ensure it doesn't go below 0 (implied, though not explicitly stated, negative grades are weird)
                     if (rawAptitude < 0) rawAptitude = 0; 
                     
                     const aptitudeScore = rawAptitude * 0.3;
 
                     // Subject Proficiency: (Sum / Total Items) * 40%
-                    // Assuming 300 total items for now
-                    const subjectScore = ((cadet.prelim_score + cadet.midterm_score + cadet.final_score) / 300) * 40;
+                    const subjectScore = ((gradeData.prelim_score + gradeData.midterm_score + gradeData.final_score) / 300) * 40;
                     
                     const finalGrade = attendanceScore + aptitudeScore + subjectScore;
                     
-                    const { remarks } = calculateTransmutedGrade(finalGrade, cadet.grade_status);
+                    const { remarks } = calculateTransmutedGrade(finalGrade, gradeData.grade_status);
 
                     if (remarks === 'Passed') analyticsData.grades.passed++;
                     else if (remarks === 'Failed') analyticsData.grades.failed++;
                     
-                    if (['INC', 'DO', 'T'].includes(cadet.grade_status)) {
+                    if (['INC', 'DO', 'T'].includes(gradeData.grade_status)) {
                         analyticsData.grades.incomplete++;
-                        analyticsData.grades.failed--; 
+                        if (remarks === 'Failed') analyticsData.grades.failed--; // Adjust if it was counted as failed above
                     }
                 });
 
-                res.json(analyticsData);
+                // 3. Get Demographics (Company, Rank, Status) - Replaces client-side aggregation
+                const demographicsQueries = [
+                    new Promise((resolve, reject) => {
+                        db.all("SELECT company, COUNT(*) as count FROM cadets GROUP BY company", [], (err, rows) => {
+                            if (err) reject(err); else resolve({ type: 'company', rows });
+                        });
+                    }),
+                    new Promise((resolve, reject) => {
+                        db.all("SELECT rank, COUNT(*) as count FROM cadets GROUP BY rank", [], (err, rows) => {
+                            if (err) reject(err); else resolve({ type: 'rank', rows });
+                        });
+                    }),
+                    new Promise((resolve, reject) => {
+                        db.all("SELECT status, COUNT(*) as count FROM cadets GROUP BY status", [], (err, rows) => {
+                            if (err) reject(err); else resolve({ type: 'status', rows });
+                        });
+                    }),
+                    new Promise((resolve, reject) => {
+                         db.get("SELECT COUNT(*) as total FROM cadets", [], (err, row) => {
+                             if (err) reject(err); else resolve({ type: 'total', count: row.total });
+                         });
+                    })
+                ];
+
+                Promise.all(demographicsQueries)
+                    .then(results => {
+                        const demographics = { company: [], rank: [], status: [], totalCadets: 0 };
+                        
+                        results.forEach(result => {
+                            if (result.type === 'total') {
+                                demographics.totalCadets = result.count;
+                            } else if (result.type === 'company') {
+                                // Map company names logic
+                                const companyMap = {};
+                                result.rows.forEach(r => {
+                                    let name = r.company ? r.company.trim() : 'Unverified';
+                                    if (name === '. . . . . . . .') name = 'Advance Officer';
+                                    if (!name) name = 'Unverified';
+                                    companyMap[name] = (companyMap[name] || 0) + r.count;
+                                });
+                                demographics.company = Object.keys(companyMap).map(k => ({ name: k, count: companyMap[k] }));
+                            } else if (result.type === 'rank') {
+                                demographics.rank = result.rows.map(r => ({ name: r.rank || 'Unverified', count: r.count }));
+                            } else if (result.type === 'status') {
+                                demographics.status = result.rows.map(r => ({ name: r.status || 'Unverified', value: r.count }));
+                            }
+                        });
+
+                        analyticsData.demographics = demographics;
+                        res.json(analyticsData);
+                    })
+                    .catch(err => {
+                         console.error("Demographics error:", err);
+                         // Return partial data if demographics fail
+                         res.json(analyticsData);
+                    });
             });
         });
     });
@@ -887,7 +936,12 @@ router.get('/cadets', (req, res) => {
         const totalTrainingDays = countRow.total || 15; // Default to 15 if 0
 
         const sql = `
-            SELECT c.*, u.username,
+            SELECT c.id, c.rank, c.first_name, c.middle_name, c.last_name, c.suffix_name,
+                   c.student_id, c.email, c.contact_number, c.address, 
+                   c.course, c.year_level, c.school_year, 
+                   c.battalion, c.company, c.platoon, 
+                   c.cadet_course, c.semester, c.status, c.is_profile_completed,
+                   u.username,
                    g.attendance_present, g.merit_points, g.demerit_points, 
                    g.prelim_score, g.midterm_score, g.final_score, g.status as grade_status
             FROM cadets c
@@ -1114,7 +1168,7 @@ router.delete('/activities/:id', (req, res) => {
 // Get Users (filter by pending)
 router.get('/users', (req, res) => {
     const { pending } = req.query;
-    let sql = `SELECT u.id, u.username, u.role, u.is_approved, u.email, u.profile_pic, 
+    let sql = `SELECT u.id, u.username, u.role, u.is_approved, u.email, 
                       c.first_name, c.last_name, c.student_id 
                FROM users u
                LEFT JOIN cadets c ON u.cadet_id = c.id`;

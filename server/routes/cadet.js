@@ -239,7 +239,8 @@ router.put('/profile', upload.single('profilePic'), (req, res) => {
 });
 
 router.get('/activities', (req, res) => {
-    db.all(`SELECT * FROM activities ORDER BY date DESC`, [], (err, rows) => {
+    // Exclude image_path to reduce payload size
+    db.all(`SELECT id, title, description, date FROM activities ORDER BY date DESC`, [], (err, rows) => {
         if (err) return res.status(500).json({ message: err.message });
         res.json(rows);
     });
