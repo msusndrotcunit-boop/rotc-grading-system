@@ -1,5 +1,5 @@
 require('dotenv').config({ override: true });
-// Force redeploy trigger: V2.8.0 (Supabase Fix + DB Init)
+// Force redeploy trigger: V2.8.1 (Render Startup Fix)
 const express = require('express');
 const compression = require('compression');
 const cors = require('cors');
