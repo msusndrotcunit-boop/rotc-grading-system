@@ -1,5 +1,5 @@
 require('dotenv').config({ override: true });
-// Force redeploy trigger: V2.5.0 (Port Binding Fix)
+// Force redeploy trigger: V2.6.0 (Refined Config)
 const express = require('express');
 const compression = require('compression');
 const cors = require('cors');
@@ -36,6 +36,28 @@ app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
 
+// Detailed API Health Check
+app.get('/api/health', (req, res) => {
+    // Check DB connection
+    const isPostgres = !!process.env.DATABASE_URL;
+    let dbStatus = 'unknown';
+    
+    if (isPostgres && db.pool) {
+        // Postgres check
+        db.pool.query('SELECT 1', (err) => {
+            if (err) {
+                console.error('Health check DB error:', err);
+                res.json({ status: 'ok', db: 'disconnected', type: 'postgres', timestamp: Date.now() });
+            } else {
+                res.json({ status: 'ok', db: 'connected', type: 'postgres', timestamp: Date.now() });
+            }
+        });
+    } else {
+        // SQLite check (always connected if file is open)
+        res.json({ status: 'ok', db: 'connected', type: 'sqlite', timestamp: Date.now() });
+    }
+});
+
 // Web Push Configuration
 const publicVapidKey = process.env.VAPID_PUBLIC_KEY || 'BD2dXhUwhD5lQGW7ZJcuRji6ZyNeGo7T4VoX1DK2mCcsXs8ZpvYFM_t5KE2DyHAcVchDecw2kPpZZtNsL5BlgH8';
 const privateVapidKey = process.env.VAPID_PRIVATE_KEY || 'K2XLvvSJF0h98grs0_2Aqw-4UTg89Euy01Z83eQLuD4';
@@ -53,10 +75,12 @@ try {
 // Global Error Handlers
 process.on('uncaughtException', (err) => {
     console.error('UNCAUGHT EXCEPTION:', err);
+    process.exit(1); // Exit to allow restart
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('UNHANDLED REJECTION:', reason);
+    process.exit(1); // Exit to allow restart
 });
 
 // Middleware
@@ -131,6 +155,11 @@ app.get('/debug-deployment', (req, res) => {
 
 // SPA FALLBACK HANDLER
 const serveIndex = (req, res) => {
+    // SECURITY: Prevent API 404s from returning HTML
+    if (req.path.startsWith('/api')) {
+        return res.status(404).send('API endpoint not found');
+    }
+
     const indexPath = path.join(clientBuildPath, 'index.html');
     res.setHeader('Content-Type', 'text/html');
     res.sendFile(indexPath, (err) => {
@@ -165,3 +194,24 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 
 // Timeout safeguard
 server.setTimeout(30000); // 30s timeout
+
+// Graceful Shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received. Shutting down gracefully...');
+    server.close(() => {
+        console.log('HTTP server closed.');
+        if (db.pool) {
+            db.pool.end(() => {
+                console.log('Database connection pool closed.');
+                process.exit(0);
+            });
+        } else if (db.close) {
+            db.close(() => {
+                console.log('SQLite database connection closed.');
+                process.exit(0);
+            });
+        } else {
+            process.exit(0);
+        }
+    });
+});
