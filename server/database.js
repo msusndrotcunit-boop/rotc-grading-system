@@ -659,27 +659,26 @@ function seedDefaultCadet() {
     const username = 'cadet@2026';
     const password = 'cadet@2026';
     const email = 'cadet2026@default.com';
-
-    db.get("SELECT * FROM users WHERE username = ?", [username], async (err, row) => {
+    db.get('SELECT * FROM users WHERE username = ?', [username], async (err, row) => {
         if (!row) {
             console.log('Default cadet not found. Seeding...');
             try {
                 const hashedPassword = await bcrypt.hash(password, 10);
-                db.run(`INSERT INTO users (username, password, role, is_approved, email) VALUES (?, ?, 'cadet', 1, ?)`, 
-                    [username, hashedPassword, email], 
-                    (err) => {
-                        if (err) console.error('Error seeding default cadet:', err ? err.message : err);
-                        else {
-                            console.log('Default cadet seeded successfully (cadet@2026).');
-                            // Create dummy cadet profile to prevent join errors
-                            db.run(`INSERT INTO cadets (user_id, first_name, last_name, student_id) VALUES ((SELECT id FROM users WHERE username = ?), 'Default', 'Cadet', ?)`,
-                                [username, username],
-                                (cErr) => {
-                                    if(cErr) console.error('Error creating dummy cadet profile:', cErr);
-                                    else console.log('Dummy cadet profile created.');
-                                }
-                            );
+                db.run('INSERT INTO cadets (student_id, first_name, last_name, rank, status) VALUES (?, ?, ?, ?, ?)',
+                    ['DEFAULT_CADET', 'Default', 'Cadet', 'CDT', 'System'],
+                    function(cErr) {
+                        if (cErr) {
+                            console.error('Error creating default cadet profile:', cErr);
+                            return;
                         }
+                        const cadetId = this.lastID;
+                        db.run('INSERT INTO users (username, password, role, cadet_id, is_approved, email) VALUES (?, ?, ''cadet'', ?, 1, ?)',
+                            [username, hashedPassword, cadetId, email],
+                            (uErr) => {
+                                if (uErr) console.error('Error seeding default cadet user:', uErr);
+                                else console.log('Default cadet seeded successfully (cadet@2026) with profile.');
+                            }
+                        );
                     }
                 );
             } catch (e) {
@@ -688,6 +687,7 @@ function seedDefaultCadet() {
         }
     });
 }
+
 
 function seedDefaultStaff() {
     // Check if ANY training staff exists. If so, do not seed default staff to prevent security risk.
