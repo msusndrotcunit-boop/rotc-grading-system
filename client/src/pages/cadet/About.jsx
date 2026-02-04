@@ -28,6 +28,9 @@ const About = () => {
                     <p className="text-xl text-gray-600 dark:text-gray-300">
                         MSU-SND ROTC UNIT
                     </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                        Version {import.meta.env.PACKAGE_VERSION}
+                    </p>
                 </div>
 
                 <div className="space-y-6 text-gray-700 dark:text-gray-300">

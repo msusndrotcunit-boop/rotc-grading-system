@@ -30,7 +30,7 @@ export const SettingsProvider = ({ children }) => {
                 return;
             }
 
-            const res = await axios.get('/api/auth/system-settings', {
+            const res = await axios.get('/api/auth/settings', {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -104,7 +104,7 @@ export const SettingsProvider = ({ children }) => {
                 primary_color: newSettings.theme.primaryColor
             };
 
-            await axios.put('/api/admin/system-settings', payload, {
+            await axios.put('/api/auth/settings', payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return true;

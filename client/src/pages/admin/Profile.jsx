@@ -163,7 +163,7 @@ const AdminProfile = () => {
                         </div>
                         <div>
                             <span className="text-xs text-gray-500 uppercase font-bold block mb-1">Version</span>
-                            <span className="font-semibold text-gray-800">2.3.1</span>
+                            <span className="font-semibold text-gray-800">{import.meta.env.PACKAGE_VERSION}</span>
                         </div>
                         <div>
                             <span className="text-xs text-gray-500 uppercase font-bold block mb-1">Developer</span>
