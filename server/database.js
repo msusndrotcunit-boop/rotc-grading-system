@@ -672,7 +672,7 @@ function seedDefaultCadet() {
                             return;
                         }
                         const cadetId = this.lastID;
-                        db.run('INSERT INTO users (username, password, role, cadet_id, is_approved, email) VALUES (?, ?, ''cadet'', ?, 1, ?)',
+                        db.run('INSERT INTO users (username, password, role, cadet_id, is_approved, email) VALUES (?, ?, \'cadet\', ?, 1, ?)',
                             [username, hashedPassword, cadetId, email],
                             (uErr) => {
                                 if (uErr) console.error('Error seeding default cadet user:', uErr);
