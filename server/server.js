@@ -1,5 +1,5 @@
 require('dotenv').config({ override: true });
-// Force redeploy trigger: V2.4.9 (SPA Routing Fix)
+// Force redeploy trigger: V2.5.0 (Port Binding Fix)
 const express = require('express');
 const compression = require('compression');
 const cors = require('cors');
@@ -17,8 +17,12 @@ const webpush = require('web-push');
 const { processUrlImport } = require('./utils/importCadets');
 const dbSettingsKey = 'cadet_list_source_url';
 
+console.log('[Startup] Initializing Server...');
+
 const app = express();
-const PORT = process.env.PORT || 5000;
+// CRITICAL: Render sets PORT env var. Must use it. Default to 10000 if missing.
+const PORT = parseInt(process.env.PORT) || 5000;
+console.log(`[Startup] Configured to listen on port: ${PORT}`);
 
 // LOGGING MIDDLEWARE
 app.use((req, res, next) => {
@@ -26,7 +30,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health Check Routes
+// Health Check Routes - FIRST defined route
 app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
@@ -35,25 +39,15 @@ app.get('/health', (req, res) => {
 const publicVapidKey = process.env.VAPID_PUBLIC_KEY || 'BD2dXhUwhD5lQGW7ZJcuRji6ZyNeGo7T4VoX1DK2mCcsXs8ZpvYFM_t5KE2DyHAcVchDecw2kPpZZtNsL5BlgH8';
 const privateVapidKey = process.env.VAPID_PRIVATE_KEY || 'K2XLvvSJF0h98grs0_2Aqw-4UTg89Euy01Z83eQLuD4';
 
-webpush.setVapidDetails(
-    'mailto:msusndrotcunit@gmail.com',
-    publicVapidKey,
-    privateVapidKey
-);
-
-// Keep-Alive Mechanism
-if (process.env.RENDER_EXTERNAL_URL) {
-    const https = require('https');
-    setInterval(() => {
-        https.get(`${process.env.RENDER_EXTERNAL_URL}/api/auth/login`, (resp) => {
-            // console.log('Self-ping successful');
-        }).on('error', (err) => {
-            console.error('Self-ping failed:', err.message);
-        });
-    }, 14 * 60 * 1000); // 14 minutes
+try {
+    webpush.setVapidDetails(
+        'mailto:msusndrotcunit@gmail.com',
+        publicVapidKey,
+        privateVapidKey
+    );
+} catch (err) {
+    console.error('[Startup] WebPush config warning:', err.message);
 }
-
-console.log('Starting ROTC Grading System Server V2.4.9 (SPA Fix)...'); 
 
 // Global Error Handlers
 process.on('uncaughtException', (err) => {
@@ -87,7 +81,6 @@ if (!fs.existsSync(uploadDir)){
 }
 
 // DETERMINING CLIENT BUILD PATH DYNAMICALLY
-// Try multiple common locations
 const possibleBuildPaths = [
     path.join(__dirname, '../client/dist'),
     path.join(__dirname, 'client/dist'),
@@ -108,8 +101,7 @@ for (const p of possibleBuildPaths) {
 }
 
 if (!foundBuild) {
-    console.error('[Startup] WARNING: Could not find React build directory in common locations.');
-    console.error(`[Startup] Checked: ${possibleBuildPaths.join(', ')}`);
+    console.error('[Startup] WARNING: Could not find React build directory.');
 }
 
 // Serve static files
@@ -126,76 +118,49 @@ app.use(express.static(clientBuildPath, {
 
 // DEBUG ROUTE
 app.get('/debug-deployment', (req, res) => {
-    const info = {
+    res.json({
+        port: PORT,
         cwd: process.cwd(),
         dirname: __dirname,
         selectedBuildPath: clientBuildPath,
         foundBuild,
-        possiblePaths: possibleBuildPaths,
-        buildContents: foundBuild ? fs.readdirSync(clientBuildPath) : 'N/A'
-    };
-    res.json(info);
+        envPort: process.env.PORT
+    });
 });
 
-// SPA FALLBACK HANDLER - ROBUST VERSION
-// Explicitly handle index.html serving for ANY unmatched route
+// SPA FALLBACK HANDLER
 const serveIndex = (req, res) => {
     const indexPath = path.join(clientBuildPath, 'index.html');
-    
-    // Explicitly set content type to avoid confusion
     res.setHeader('Content-Type', 'text/html');
-
     res.sendFile(indexPath, (err) => {
         if (err) {
             console.error(`[SPA Fallback] Error serving index.html: ${err.message}`);
             if (!res.headersSent) {
-                res.status(500).send(`
-                    <h1>Server Error</h1>
-                    <p>Failed to serve the application.</p>
-                    <p>Error details: ${err.message}</p>
-                    <p>Build Path: ${clientBuildPath}</p>
-                `);
+                res.status(500).send('Server Error: Client build not found.');
             }
         }
     });
 };
 
 app.get('/', serveIndex);
-app.get('/login', serveIndex); // Explicit login route
-app.get('/dashboard', serveIndex); // Explicit dashboard route
-app.get('*', serveIndex); // Catch-all
+app.get('/login', serveIndex);
+app.get('/dashboard', serveIndex);
+app.get('*', serveIndex);
 
-const enableAutoSync = process.env.ENABLE_CADET_AUTO_SYNC !== 'false';
-const syncIntervalMinutes = parseInt(process.env.CADET_SYNC_INTERVAL_MINUTES || '10', 10);
-if (enableAutoSync && syncIntervalMinutes > 0) {
-    setInterval(() => {
-        try {
-            db.get(`SELECT value FROM system_settings WHERE key = ?`, [dbSettingsKey], async (err, row) => {
-                if (err) return;
-                if (!row || !row.value) return;
-                try {
-                    const result = await processUrlImport(row.value);
-                    console.log(`Auto-sync cadets: success=${result.successCount} failed=${result.failCount}`);
-                } catch (e) {
-                    console.error('Auto-sync cadets error:', e.message);
-                }
-            });
-        } catch (e) {}
-    }, syncIntervalMinutes * 60 * 1000);
-}
+// START SERVER IMMEDIATELY
+// Bind to 0.0.0.0 to ensure external access in container
+const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server successfully started on port ${PORT}`);
+    console.log(`http://0.0.0.0:${PORT}`);
+    
+    // Initialize DB *after* server is listening
+    if (db.initialize) {
+        console.log('Initializing database in background...');
+        db.initialize()
+            .then(() => console.log('Database initialized successfully.'))
+            .catch(err => console.error('Database initialization failed:', err));
+    }
+});
 
-const startServer = async () => {
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-        
-        // Initialize DB *after* server starts
-        if (db.initialize) {
-            console.log('Initializing database in background...');
-            db.initialize()
-                .then(() => console.log('Database initialized successfully.'))
-                .catch(err => console.error('Database initialization failed (NON-FATAL):', err));
-        }
-    });
-};
-
-startServer();
+// Timeout safeguard
+server.setTimeout(30000); // 30s timeout
