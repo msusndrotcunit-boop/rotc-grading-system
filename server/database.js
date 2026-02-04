@@ -1,4 +1,3 @@
-const sqlite3 = require('sqlite3').verbose();
 const { Pool } = require('pg');
 const path = require('path');
 const bcrypt = require('bcryptjs');
@@ -9,6 +8,7 @@ const isPostgres = !!process.env.DATABASE_URL;
 // The connection will fail naturally if the URL is invalid.
 
 let db;
+let sqlite3;
 
 // DB Adapter to unify SQLite and Postgres
 if (isPostgres) {
@@ -37,7 +37,7 @@ if (isPostgres) {
             // Handle INSERT to return ID (simulating this.lastID)
             const isInsert = sql.trim().toUpperCase().startsWith('INSERT');
             if (isInsert && !pgSql.toLowerCase().includes('returning')) {
-                pgSql += ' RETURNING id';
+                pgSql += ' RETURNING *';
             }
 
             pool.query(pgSql, params, (err, res) => {
@@ -46,7 +46,7 @@ if (isPostgres) {
                     return;
                 }
                 const context = {
-                    lastID: isInsert && res.rows.length > 0 ? res.rows[0].id : 0,
+                    lastID: isInsert && res.rows.length > 0 ? (res.rows[0].id || 0) : 0,
                     changes: res.rowCount
                 };
                 if (callback) callback.call(context, null);
@@ -140,6 +140,7 @@ if (isPostgres) {
     `).catch(err => console.log('Migration info:', err.message));
 
 } else {
+    sqlite3 = require('sqlite3').verbose();
     const dbPath = path.resolve(__dirname, 'rotc.db');
     db = new sqlite3.Database(dbPath, (err) => {
         if (err) console.error('Error opening database', err.message);

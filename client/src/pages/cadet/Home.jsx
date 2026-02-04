@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cacheData, getCachedData } from '../../utils/db';
 import { toast } from 'react-hot-toast';
+import WeatherAdvisory from '../../components/WeatherAdvisory';
 
 const CadetHome = () => {
     const [activities, setActivities] = useState([]);
@@ -64,6 +65,7 @@ const CadetHome = () => {
 
     return (
         <div className="space-y-8">
+            <WeatherAdvisory />
             <h1 className="text-3xl font-bold text-gray-800">Home</h1>
             <p className="text-gray-600">
                 All ROTC activities and announcements from the administrator will appear here.

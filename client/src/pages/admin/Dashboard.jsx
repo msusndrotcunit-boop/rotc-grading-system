@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts';
 import { cacheData, getCachedData, cacheSingleton, getSingleton } from '../../utils/db';
+import WeatherAdvisory from '../../components/WeatherAdvisory';
 
 const COLORS = {
   Passed: '#22c55e', // Green
@@ -135,6 +136,8 @@ const Dashboard = () => {
 
     return (
         <div className="space-y-6">
+            <WeatherAdvisory />
+            
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bg-white p-6 rounded shadow border-l-4 border-blue-500">

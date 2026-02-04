@@ -77,6 +77,16 @@ const CadetLayout = () => {
         setShowGuideModal(true);
     };
 
+    const handleSkipGuide = async () => {
+        try {
+            await axios.post('/api/cadet/acknowledge-guide');
+            setShowWelcomeModal(false);
+        } catch (err) {
+            console.error("Error skipping guide:", err);
+            setShowWelcomeModal(false);
+        }
+    };
+
     const handleNextGuideStep = () => {
         if (guideStep < guideSteps.length - 1) {
             setGuideStep(prev => prev + 1);
@@ -342,7 +352,13 @@ const CadetLayout = () => {
             {/* Welcome Modal */}
             {showWelcomeModal && profile && (
                 <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] p-4">
-                    <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-8 text-center animate-fade-in-up">
+                    <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-8 text-center animate-fade-in-up relative">
+                        <button 
+                            onClick={handleSkipGuide}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                        >
+                            <X size={24} />
+                        </button>
                         <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
                             <User size={40} className="text-green-700" />
                         </div>
@@ -355,9 +371,15 @@ const CadetLayout = () => {
                         </p>
                         <button
                             onClick={handleStartGuide}
-                            className="w-full bg-green-700 text-white py-3 rounded-lg font-bold hover:bg-green-800 transition flex items-center justify-center"
+                            className="w-full bg-green-700 text-white py-3 rounded-lg font-bold hover:bg-green-800 transition flex items-center justify-center mb-3"
                         >
                             Start User Guide <ArrowRight size={20} className="ml-2" />
+                        </button>
+                        <button
+                            onClick={handleSkipGuide}
+                            className="w-full bg-white border border-gray-300 text-gray-600 py-3 rounded-lg font-bold hover:bg-gray-50 transition"
+                        >
+                            Skip Guide
                         </button>
                     </div>
                 </div>

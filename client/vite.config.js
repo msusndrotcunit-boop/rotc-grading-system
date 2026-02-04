@@ -27,19 +27,19 @@ export default defineConfig({
         theme_color: '#ffffff',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'pwa-192x192.webp',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/webp'
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'pwa-512x512.webp',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/webp'
           }
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}']
       },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg']
     })

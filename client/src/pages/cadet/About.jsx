@@ -7,18 +7,18 @@ const About = () => {
                 <div className="flex flex-col items-center text-center mb-8">
                     <div className="flex flex-col md:flex-row items-center justify-center gap-6 mb-6">
                         <img 
-                            src="/assets/msu_rotc_logo.png" 
+                            src="/assets/msu_rotc_logo.webp" 
                             alt="ROTC Logo" 
                             className="w-24 h-24 object-contain"
                         />
                         <img 
-                            src="/assets/1002nd_cdc.png" 
+                            src="/assets/1002nd_cdc.webp" 
                             alt="1002nd CDC Logo" 
                             className="w-24 h-24 object-contain"
                         />
                         <img 
-                            src="/assets/msu_snd_seal.png" 
-                            alt="MSU Seal" 
+                            src="/assets/msu_snd_seal.webp" 
+                            alt="MSU-SND Seal" 
                             className="w-24 h-24 object-contain"
                         />
                     </div>

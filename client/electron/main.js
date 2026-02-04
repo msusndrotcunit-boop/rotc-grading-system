@@ -12,7 +12,7 @@ function createWindow() {
       contextIsolation: true,
       enableRemoteModule: false,
     },
-    icon: path.join(__dirname, '../public/assets/msu_rotc_logo.png'), // Path to your icon
+    icon: path.join(__dirname, '../public/assets/msu_rotc_logo.webp'), // Path to your icon
   });
 
   // Load the app

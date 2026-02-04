@@ -65,10 +65,10 @@ const Login = () => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-cover bg-center relative" style={{ backgroundImage: "url('/assets/rgms_logo.png')", backgroundBlendMode: 'overlay', backgroundColor: 'rgba(20, 83, 45, 0.9)' }}>
+        <div className="flex items-center justify-center min-h-screen bg-cover bg-center relative" style={{ backgroundImage: "url('/assets/rgms_logo.webp')", backgroundBlendMode: 'overlay', backgroundColor: 'rgba(20, 83, 45, 0.9)' }}>
             <div className="bg-white/90 backdrop-blur-md p-8 rounded-lg shadow-2xl w-full max-w-md border border-green-700/30 relative z-10">
                 <div className="flex justify-center items-center mb-6">
-                    <img src="/assets/rgms_logo.png" alt="RGMS Logo" className="w-32 h-32 object-contain" />
+                    <img src="/assets/rgms_logo.webp" alt="RGMS Logo" className="w-32 h-32 object-contain" />
                 </div>
 
                 <h2 className="text-2xl font-bold mb-6 text-center text-green-900">MSU-SND ROTC UNIT Grading Management</h2>

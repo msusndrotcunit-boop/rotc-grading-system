@@ -43,7 +43,17 @@ if (process.env.RENDER_EXTERNAL_URL) {
     }, 14 * 60 * 1000); // 14 minutes
 }
 
-console.log('Starting ROTC Grading System Server V2.4.0 (Firebase Removed, Compression Active)...'); // Version bump for deployment trigger
+console.log('Starting ROTC Grading System Server V2.4.1 (Fix Render Loop)...'); // Version bump for deployment trigger
+
+// Global Error Handlers to prevent crash loops
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+    // Keep running if possible, but logging is crucial
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION:', reason);
+});
 
 // Middleware
 app.use(compression());

@@ -12,8 +12,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'ROTC GSMS';
   const options = {
     body: data.body || 'New notification',
-    icon: data.icon || '/pwa-192x192.png',
-    badge: '/pwa-192x192.png',
+    icon: data.icon || '/pwa-192x192.webp',
+    badge: '/pwa-192x192.webp',
     data: {
       url: data.url || '/'
     }

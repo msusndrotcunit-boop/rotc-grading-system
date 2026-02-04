@@ -26,9 +26,9 @@ const LandingPage = () => {
             {/* Hero Section */}
             <header className="flex flex-col items-center justify-center text-center px-4 mt-10 md:mt-20 mb-20">
                 <div className="flex space-x-6 mb-8 animate-fade-in-up">
-                    <img src="/assets/1002nd_cdc.png" alt="1002nd CDC" className="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-2xl" />
-                    <img src="/assets/msu_rotc_logo.png" alt="ROTC Unit" className="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-2xl" />
-                    <img src="/assets/msu_snd_seal.png" alt="MSU-SND Seal" className="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-2xl" />
+                    <img src="/assets/1002nd_cdc.webp" alt="1002nd CDC" className="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-2xl" />
+                    <img src="/assets/msu_rotc_logo.webp" alt="ROTC Unit" className="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-2xl" />
+                    <img src="/assets/msu_snd_seal.webp" alt="MSU-SND Seal" className="w-20 h-20 md:w-28 md:h-28 object-contain drop-shadow-2xl" />
                 </div>
                 
                 <h1 className="text-4xl md:text-6xl font-extrabold mb-4 tracking-tight leading-tight max-w-4xl">

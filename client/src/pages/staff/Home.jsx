@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Calendar, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import WeatherAdvisory from '../../components/WeatherAdvisory';
 
 const StaffHome = () => {
     const [activities, setActivities] = useState([]);
@@ -47,6 +48,7 @@ const StaffHome = () => {
 
     return (
         <div className="space-y-8">
+            <WeatherAdvisory />
             <h1 className="text-3xl font-bold text-gray-800">Home</h1>
             <p className="text-gray-600">
                 Welcome, Training Staff! All ROTC activities and announcements will appear here.
