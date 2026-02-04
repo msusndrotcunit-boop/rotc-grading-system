@@ -1,5 +1,5 @@
 require('dotenv').config({ override: true });
-// Force redeploy trigger: V2.4.6
+// Force redeploy trigger: V2.4.8 (Logging Added)
 const express = require('express');
 const compression = require('compression');
 const cors = require('cors');
@@ -20,7 +20,13 @@ const dbSettingsKey = 'cadet_list_source_url';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Health Check Routes (Must be first to avoid shadowing by other routes) - Verified Fix
+// LOGGING MIDDLEWARE - CRITICAL FOR DEBUGGING RENDER
+app.use((req, res, next) => {
+    console.log(`[Request] ${req.method} ${req.url}`);
+    next();
+});
+
+// Health Check Routes (Must be first to avoid shadowing by other routes)
 app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
@@ -36,7 +42,6 @@ webpush.setVapidDetails(
 );
 
 // Keep-Alive Mechanism for Render Free Tier
-// Pings the server every 14 minutes to prevent sleep
 if (process.env.RENDER_EXTERNAL_URL) {
     const https = require('https');
     setInterval(() => {
@@ -48,12 +53,11 @@ if (process.env.RENDER_EXTERNAL_URL) {
     }, 14 * 60 * 1000); // 14 minutes
 }
 
-console.log('Starting ROTC Grading System Server V2.4.3 (Non-Blocking Init)...'); // Version bump for deployment trigger
+console.log('Starting ROTC Grading System Server V2.4.8 (Non-Blocking Init)...'); 
 
 // Global Error Handlers to prevent crash loops
 process.on('uncaughtException', (err) => {
     console.error('UNCAUGHT EXCEPTION:', err);
-    // Keep running if possible, but logging is crucial
 });
 
 process.on('unhandledRejection', (reason, promise) => {

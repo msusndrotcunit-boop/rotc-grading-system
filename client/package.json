@@ -3,7 +3,6 @@
   "private": true,
   "version": "2.3.18",
   "main": "electron/main.js",
-  "homepage": "./",
   "scripts": {
     "dev": "vite",
     "build": "npx vite build",
