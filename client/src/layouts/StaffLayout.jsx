@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, User, LogOut, Menu, X, Info, Home as HomeIcon, Settings, Lock, MessageCircle, Bell, Check } from 'lucide-react';
+import { LayoutDashboard, User, LogOut, Menu, X, Home as HomeIcon, Settings, Lock, MessageCircle, Bell, Check } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import clsx from 'clsx';
 

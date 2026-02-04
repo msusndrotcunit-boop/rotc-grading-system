@@ -1,7 +1,7 @@
 import React, { useState, Suspense } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, User, LogOut, Menu, X, Info, Home as HomeIcon, Settings, Bell, Check } from 'lucide-react';
+import { LayoutDashboard, User, LogOut, Menu, X, Info, Home as HomeIcon, Settings, Bell, Check, ChevronRight, QrCode, FileText, CheckCircle, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
 import { Toaster } from 'react-hot-toast';
 import axios from 'axios';
@@ -23,6 +23,78 @@ const CadetLayout = () => {
             navigate('/cadet/profile', { replace: true });
         }
     }, [user, location.pathname, navigate]);
+
+    // Welcome & Guide States
+    const [profile, setProfile] = useState(null);
+    const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+    const [showGuideModal, setShowGuideModal] = useState(false);
+    const [guideStep, setGuideStep] = useState(0);
+
+    const guideSteps = [
+        {
+            title: "Dashboard Overview",
+            description: "Stay updated with the latest activities and announcements.",
+            icon: CheckCircle
+        },
+        {
+            title: "Profile Management",
+            description: "Keep your personal information up to date.",
+            icon: User
+        },
+        {
+            title: "QR Code Attendance",
+            description: "Use your unique QR code for quick attendance scanning during training.",
+            icon: QrCode
+        },
+        {
+            title: "Performance Tracking",
+            description: "Monitor your grades, merits, and demerits in real-time.",
+            icon: FileText
+        }
+    ];
+
+    // Check for Guide on mount (if profile completed)
+    React.useEffect(() => {
+        const checkGuideStatus = async () => {
+            if (user && user.isProfileCompleted) {
+                try {
+                    const profileRes = await axios.get('/api/cadet/profile');
+                    setProfile(profileRes.data);
+                    
+                    if (profileRes.data && !profileRes.data.has_seen_guide) {
+                        setShowWelcomeModal(true);
+                    }
+                } catch (err) {
+                    console.error('Error fetching profile for guide:', err);
+                }
+            }
+        };
+        checkGuideStatus();
+    }, [user]);
+
+    const handleStartGuide = () => {
+        setShowWelcomeModal(false);
+        setShowGuideModal(true);
+    };
+
+    const handleNextGuideStep = () => {
+        if (guideStep < guideSteps.length - 1) {
+            setGuideStep(prev => prev + 1);
+        } else {
+            handleFinishGuide();
+        }
+    };
+
+    const handleFinishGuide = async () => {
+        try {
+            await axios.post('/api/cadet/acknowledge-guide');
+            setShowGuideModal(false);
+            toast.success("You're all set! Welcome aboard.");
+        } catch (err) {
+            console.error("Error acknowledging guide:", err);
+            setShowGuideModal(false);
+        }
+    };
 
     const handleLogout = () => {
         logout();
@@ -266,6 +338,76 @@ const CadetLayout = () => {
                     </Suspense>
                 </main>
             </div>
+
+            {/* Welcome Modal */}
+            {showWelcomeModal && profile && (
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-8 text-center animate-fade-in-up">
+                        <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                            <User size={40} className="text-green-700" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome!</h2>
+                        <h3 className="text-xl font-semibold text-green-700 mb-4">
+                            {profile.rank} {profile.first_name} {profile.last_name}
+                        </h3>
+                        <p className="text-gray-600 mb-8">
+                            to MSU-SND ROTC Grading Management System
+                        </p>
+                        <button
+                            onClick={handleStartGuide}
+                            className="w-full bg-green-700 text-white py-3 rounded-lg font-bold hover:bg-green-800 transition flex items-center justify-center"
+                        >
+                            Start User Guide <ArrowRight size={20} className="ml-2" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* User Guide Modal */}
+            {showGuideModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-lg shadow-2xl max-w-lg w-full p-8 relative animate-fade-in-up">
+                        {/* Progress Dots */}
+                        <div className="absolute top-6 right-8 flex space-x-2">
+                            {guideSteps.map((_, idx) => (
+                                <div 
+                                    key={idx} 
+                                    className={`w-2 h-2 rounded-full transition-all ${idx === guideStep ? 'bg-green-600 w-4' : 'bg-gray-300'}`}
+                                />
+                            ))}
+                        </div>
+
+                        <div className="mb-8 mt-4 text-center">
+                            <div className="mx-auto w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                                {React.createElement(guideSteps[guideStep].icon, { size: 48, className: "text-green-600" })}
+                            </div>
+                            <h3 className="text-2xl font-bold text-gray-800 mb-4">{guideSteps[guideStep].title}</h3>
+                            <p className="text-gray-600 text-lg leading-relaxed">
+                                {guideSteps[guideStep].description}
+                            </p>
+                        </div>
+
+                        <div className="flex justify-between items-center mt-8">
+                            <button
+                                onClick={() => {
+                                    if (guideStep > 0) setGuideStep(prev => prev - 1);
+                                    else setShowGuideModal(false);
+                                }}
+                                className={`text-gray-500 hover:text-gray-800 font-semibold px-4 py-2 ${guideStep === 0 ? 'invisible' : ''}`}
+                            >
+                                Back
+                            </button>
+                            <button
+                                onClick={handleNextGuideStep}
+                                className="bg-green-700 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-800 transition shadow-lg flex items-center"
+                            >
+                                {guideStep === guideSteps.length - 1 ? 'Get Started' : 'Next'}
+                                {guideStep < guideSteps.length - 1 && <ChevronRight size={20} className="ml-1" />}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
