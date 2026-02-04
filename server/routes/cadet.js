@@ -250,7 +250,7 @@ router.post('/acknowledge-guide', (req, res) => {
     const cadetId = req.user.cadetId;
     if (!cadetId) return res.status(403).json({ message: 'Access denied.' });
     
-    db.run("UPDATE cadets SET has_seen_guide = 1 WHERE id = ?", [cadetId], (err) => {
+    db.run("UPDATE cadets SET has_seen_guide = TRUE WHERE id = ?", [cadetId], (err) => {
         if (err) return res.status(500).json({ message: err.message });
         res.json({ message: 'User guide acknowledged' });
     });
@@ -271,7 +271,7 @@ router.get('/notifications', (req, res) => {
 
 // Mark Notification as Read
 router.put('/notifications/:id/read', (req, res) => {
-    db.run(`UPDATE notifications SET is_read = 1 WHERE id = ?`, [req.params.id], function(err) {
+    db.run(`UPDATE notifications SET is_read = TRUE WHERE id = ?`, [req.params.id], function(err) {
         if (err) return res.status(500).json({ message: err.message });
         res.json({ message: 'Marked as read' });
     });
@@ -279,7 +279,7 @@ router.put('/notifications/:id/read', (req, res) => {
 
 // Mark All as Read
 router.put('/notifications/read-all', (req, res) => {
-    db.run(`UPDATE notifications SET is_read = 1 WHERE ((user_id IS NULL AND type IN ('activity', 'announcement')) OR user_id = ?) AND is_read = 0`, [req.user.id], function(err) {
+    db.run(`UPDATE notifications SET is_read = TRUE WHERE ((user_id IS NULL AND type IN ('activity', 'announcement')) OR user_id = ?) AND is_read = FALSE`, [req.user.id], function(err) {
         if (err) return res.status(500).json({ message: err.message });
         res.json({ message: 'All marked as read' });
     });

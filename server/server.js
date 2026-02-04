@@ -1,5 +1,5 @@
 require('dotenv').config({ override: true });
-// Force redeploy trigger: V2.6.0 (Refined Config)
+// Force redeploy trigger: V2.8.0 (Supabase Fix + DB Init)
 const express = require('express');
 const compression = require('compression');
 const cors = require('cors');
@@ -39,15 +39,15 @@ app.get('/health', (req, res) => {
 // Detailed API Health Check
 app.get('/api/health', (req, res) => {
     // Check DB connection
-    const isPostgres = !!process.env.DATABASE_URL;
-    let dbStatus = 'unknown';
+    // Fix: Support both DATABASE_URL and SUPABASE_URL
+    const isPostgres = !!process.env.DATABASE_URL || !!process.env.SUPABASE_URL;
     
-    if (isPostgres && db.pool) {
+    if (db.pool) {
         // Postgres check
         db.pool.query('SELECT 1', (err) => {
             if (err) {
                 console.error('Health check DB error:', err);
-                res.json({ status: 'ok', db: 'disconnected', type: 'postgres', timestamp: Date.now() });
+                res.json({ status: 'ok', db: 'disconnected', type: 'postgres', timestamp: Date.now(), error: err.message });
             } else {
                 res.json({ status: 'ok', db: 'connected', type: 'postgres', timestamp: Date.now() });
             }
@@ -126,20 +126,20 @@ for (const p of possibleBuildPaths) {
 }
 
 if (!foundBuild) {
-    console.error('[Startup] WARNING: Could not find React build directory.');
-}
-
-// Serve static files
-app.use(express.static(clientBuildPath, {
-    maxAge: '1d',
-    setHeaders: (res, path) => {
-        if (path.endsWith('.html')) {
-            res.setHeader('Cache-Control', 'no-cache');
-        } else {
-            res.setHeader('Cache-Control', 'public, max-age=31536000');
+    console.error('[Startup] WARNING: Could not find React build directory. The app will serve a fallback page.');
+} else {
+    // Serve static files ONLY if found
+    app.use(express.static(clientBuildPath, {
+        maxAge: '1d',
+        setHeaders: (res, path) => {
+            if (path.endsWith('.html')) {
+                res.setHeader('Cache-Control', 'no-cache');
+            } else {
+                res.setHeader('Cache-Control', 'public, max-age=31536000');
+            }
         }
-    }
-}));
+    }));
+}
 
 // DEBUG ROUTE
 app.get('/debug-deployment', (req, res) => {
@@ -160,13 +160,30 @@ const serveIndex = (req, res) => {
         return res.status(404).send('API endpoint not found');
     }
 
+    if (!foundBuild) {
+        // Fallback HTML if build is missing
+        res.status(200).send(`
+            <html>
+                <head><title>System Initializing</title></head>
+                <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                    <h1>System Update in Progress</h1>
+                    <p>The application is currently rebuilding its frontend assets.</p>
+                    <p>Please refresh this page in 1-2 minutes.</p>
+                    <hr>
+                    <p style="color: gray; font-size: 0.8em;">Debug info: Client build not found at startup.</p>
+                </body>
+            </html>
+        `);
+        return;
+    }
+
     const indexPath = path.join(clientBuildPath, 'index.html');
     res.setHeader('Content-Type', 'text/html');
     res.sendFile(indexPath, (err) => {
         if (err) {
             console.error(`[SPA Fallback] Error serving index.html: ${err.message}`);
             if (!res.headersSent) {
-                res.status(500).send('Server Error: Client build not found.');
+                 res.status(500).send('Server Error: Client build file missing.');
             }
         }
     });
@@ -177,41 +194,27 @@ app.get('/login', serveIndex);
 app.get('/dashboard', serveIndex);
 app.get('*', serveIndex);
 
-// START SERVER IMMEDIATELY
-// Bind to 0.0.0.0 to ensure external access in container
-const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server successfully started on port ${PORT}`);
-    console.log(`http://0.0.0.0:${PORT}`);
-    
-    // Initialize DB *after* server is listening
-    if (db.initialize) {
-        console.log('Initializing database in background...');
-        db.initialize()
-            .then(() => console.log('Database initialized successfully.'))
-            .catch(err => console.error('Database initialization failed:', err));
-    }
-});
-
-// Timeout safeguard
-server.setTimeout(30000); // 30s timeout
-
-// Graceful Shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received. Shutting down gracefully...');
-    server.close(() => {
-        console.log('HTTP server closed.');
-        if (db.pool) {
-            db.pool.end(() => {
-                console.log('Database connection pool closed.');
-                process.exit(0);
-            });
-        } else if (db.close) {
-            db.close(() => {
-                console.log('SQLite database connection closed.');
-                process.exit(0);
-            });
-        } else {
-            process.exit(0);
-        }
+// START SERVER
+async function startServer() {
+    // Bind to 0.0.0.0 to ensure external access in container
+    // MOVED UP: Listen first to satisfy Render's startup timeout requirements
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server successfully started on port ${PORT}`);
     });
-});
+
+    // Initialize Database (Migrations & Tables)
+    if (db.initialize) {
+        console.log('[Startup] Triggering database initialization...');
+        try {
+            await db.initialize();
+            console.log('[Startup] Database initialization completed successfully.');
+        } catch (err) {
+            console.error('[Startup] CRITICAL: Database initialization failed:', err);
+            // Continue anyway? Or exit?
+            // If DB init fails, API will likely fail.
+            // But let's keep it running so we can see logs/health check error.
+        }
+    }
+}
+
+startServer();

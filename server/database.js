@@ -2,7 +2,7 @@ const { Pool } = require('pg');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const isPostgres = !!process.env.DATABASE_URL;
+const isPostgres = !!process.env.DATABASE_URL || !!process.env.SUPABASE_URL;
 
 // Removed strict placeholder check to prevent immediate crash on Render if env var is default.
 // The connection will fail naturally if the URL is invalid.
@@ -12,7 +12,7 @@ let sqlite3;
 
 // DB Adapter to unify SQLite and Postgres
 if (isPostgres) {
-    const connectionString = process.env.DATABASE_URL.trim();
+    const connectionString = (process.env.DATABASE_URL || process.env.SUPABASE_URL).trim();
     // console.log('Using DB URL:', connectionString.replace(/:[^:@]*@/, ':****@')); // Debug log
 
     const pool = new Pool({
@@ -672,11 +672,20 @@ function seedDefaultCadet() {
                         else {
                             console.log('Default cadet seeded successfully (cadet@2026).');
                             // Create dummy cadet profile to prevent join errors
-                            db.run(`INSERT INTO cadets (user_id, first_name, last_name, student_id) VALUES ((SELECT id FROM users WHERE username = ?), 'Default', 'Cadet', ?)`,
-                                [username, username],
-                                (cErr) => {
+                            // 1. Insert cadet (without user_id as it doesn't exist in schema)
+                            db.run(`INSERT INTO cadets (first_name, last_name, student_id) VALUES ('Default', 'Cadet', ?)`,
+                                [username],
+                                function(cErr) { // Use function() to access this.lastID
                                     if(cErr) console.error('Error creating dummy cadet profile:', cErr);
-                                    else console.log('Dummy cadet profile created.');
+                                    else {
+                                        const cadetId = this.lastID;
+                                        console.log('Dummy cadet profile created with ID:', cadetId);
+                                        // 2. Update user with cadet_id
+                                        db.run(`UPDATE users SET cadet_id = ? WHERE username = ?`, [cadetId, username], (uErr) => {
+                                            if (uErr) console.error('Error linking cadet to user:', uErr);
+                                            else console.log('User linked to cadet profile.');
+                                        });
+                                    }
                                 }
                             );
                         }
