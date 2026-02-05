@@ -590,7 +590,8 @@ const processUrlImport = async (url) => {
                  throw new Error(`Access Denied (403). The link might be private or require a login. Please make the link "Anyone with the link" or use a direct public link.`);
             }
             if (err.response && err.response.status === 404) {
-                 throw new Error(`File not found (404). Please check the link.`);
+                 const failedUrl = err.config?.url || 'the provided link';
+                 throw new Error(`File not found (404). The server could not access the URL. Please ensure the link is correct and publicly accessible. (Failed at: ${failedUrl})`);
             }
              throw new Error(`Network/Connection Error: ${err.message}. Please check your internet connection and the link validity.`);
         }
