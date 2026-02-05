@@ -147,18 +147,21 @@ router.get('/system-settings', authenticateToken, (req, res) => {
 
 // Login
 router.post('/login', (req, res) => {
-    const { username, password } = req.body;
+    let { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ message: 'Username and password are required.' });
+    
+    username = username.trim(); // TRIM USERNAME
+
     console.log('Login attempt:', { username, password: '***' });
 
     db.get(`SELECT * FROM users WHERE username = ? OR email = ?`, [username, username], async (err, user) => {
         if (err) {
             console.error('Login DB error:', err);
-            return res.status(500).json({ message: err.message });
+            return res.status(500).json({ message: `Database Error: ${err.message}` });
         }
         if (!user) {
             console.log('Login failed: User not found for', username);
-            return res.status(400).json({ message: 'User not found' });
+            return res.status(400).json({ message: 'User not found. Please check your username.' });
         }
 
         console.log('User found:', { id: user.id, role: user.role, is_approved: user.is_approved });
@@ -171,7 +174,7 @@ router.post('/login', (req, res) => {
         const validPassword = await bcrypt.compare(password, user.password);
         console.log('Password valid:', validPassword);
         
-        if (!validPassword) return res.status(400).json({ message: 'Invalid credentials' });
+        if (!validPassword) return res.status(400).json({ message: 'Invalid password. Please try again.' });
 
         const token = jwt.sign({ id: user.id, role: user.role, cadetId: user.cadet_id, staffId: user.staff_id }, SECRET_KEY, { expiresIn: '1h' });
         
@@ -210,6 +213,17 @@ router.post('/login', (req, res) => {
         }
     });
 });
+
+// DEBUG: Check user existence
+router.get('/debug-check-user/:username', (req, res) => {
+    const { username } = req.params;
+    db.get("SELECT id, username, role, is_approved, email FROM users WHERE username = ? OR email = ?", [username, username], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ message: 'User not found in DB' });
+        res.json(row);
+    });
+});
+
 
 // Cadet Login (No Password)
 router.post('/cadet-login', (req, res) => {
