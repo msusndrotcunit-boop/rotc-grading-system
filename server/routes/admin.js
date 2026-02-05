@@ -825,9 +825,9 @@ router.get('/analytics', (req, res) => {
                                 // Map company names logic
                                 const companyMap = {};
                                 result.rows.forEach(r => {
-                                    let name = r.company ? r.company.trim() : 'Unverified';
-                                    if (name === '. . . . . . . .') name = 'Advance Officer';
-                                    if (!name) name = 'Unverified';
+                                    let name = r.company ? r.company.trim() : '';
+                                    if (name === '. . . . . . . .' || name === '') name = 'Advance Officer';
+                                    if (!name) name = 'Unverified'; // Fallback if still empty (shouldn't be reached given above)
                                     companyMap[name] = (companyMap[name] || 0) + r.count;
                                 });
                                 demographics.company = Object.keys(companyMap).map(k => ({ name: k, count: companyMap[k] }));
