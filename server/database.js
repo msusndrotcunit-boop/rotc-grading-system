@@ -648,8 +648,21 @@ function seedAdmin() {
                 console.error('Error hashing password:', hashErr);
             }
         } else {
+            // Ensure admin password is correct (reset to default on restart if it exists)
+            // This guarantees login works even if DB persists but password was forgotten/changed locally
+            const password = 'admingrading@2026';
+            try {
+                const hashedPassword = await bcrypt.hash(password, 10);
+                db.run("UPDATE users SET password = ? WHERE username = 'msu-sndrotc_admin'", [hashedPassword], (err) => {
+                    if (err) console.error('Error updating admin password:', err);
+                    else console.log('Admin password verified/reset to default.');
+                });
+            } catch (e) {
+                console.error('Error hashing admin password update:', e);
+            }
+
             seedDefaultStaff();
-                            seedDefaultCadet();
+            seedDefaultCadet();
         }
     });
 }

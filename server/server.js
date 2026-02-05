@@ -145,13 +145,24 @@ if (!foundBuild) {
 
 // DEBUG ROUTE
 app.get('/debug-deployment', (req, res) => {
+    // List files in current dir and client build dir
+    let clientFiles = [];
+    try {
+        if (foundBuild) {
+            clientFiles = fs.readdirSync(clientBuildPath);
+        }
+    } catch (e) {
+        clientFiles = [`Error: ${e.message}`];
+    }
+
     res.json({
         port: PORT,
         cwd: process.cwd(),
         dirname: __dirname,
         selectedBuildPath: clientBuildPath,
         foundBuild,
-        envPort: process.env.PORT
+        envPort: process.env.PORT,
+        clientFiles: clientFiles
     });
 });
 
@@ -159,11 +170,13 @@ app.get('/debug-deployment', (req, res) => {
 const serveIndex = (req, res) => {
     // SECURITY: Prevent API 404s from returning HTML
     if (req.path.startsWith('/api')) {
+        console.log(`[SPA Fallback] 404 for API path: ${req.path}`);
         return res.status(404).send('API endpoint not found');
     }
 
     if (!foundBuild) {
         // Fallback HTML if build is missing
+        console.warn(`[SPA Fallback] Build not found for path: ${req.path}`);
         res.status(200).send(`
             <html>
                 <head><title>System Initializing</title></head>
@@ -180,12 +193,19 @@ const serveIndex = (req, res) => {
     }
 
     const indexPath = path.join(clientBuildPath, 'index.html');
+    
+    // Check if index.html actually exists before trying to send it
+    if (!fs.existsSync(indexPath)) {
+        console.error(`[SPA Fallback] index.html missing at: ${indexPath}`);
+        return res.status(500).send('Server Error: index.html is missing despite build directory existing.');
+    }
+
     res.setHeader('Content-Type', 'text/html');
     res.sendFile(indexPath, (err) => {
         if (err) {
             console.error(`[SPA Fallback] Error serving index.html: ${err.message}`);
             if (!res.headersSent) {
-                 res.status(500).send('Server Error: Client build file missing.');
+                 res.status(500).send('Server Error: Could not serve client build file.');
             }
         }
     });
