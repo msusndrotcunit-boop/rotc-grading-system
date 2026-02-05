@@ -227,11 +227,13 @@ router.get('/debug-check-user/:username', (req, res) => {
 
 // Cadet Login (No Password)
 router.post('/cadet-login', (req, res) => {
-    const { identifier } = req.body; // Can be Student ID or Email
+    let { identifier } = req.body; // Can be Student ID or Email
 
     if (!identifier) {
         return res.status(400).json({ message: 'Please enter your Username or Email.' });
     }
+    
+    identifier = identifier.trim();
 
     // Check by Username (Student ID) or Email
     // Only for role = 'cadet'
@@ -240,7 +242,7 @@ router.post('/cadet-login', (req, res) => {
         SELECT u.*, c.is_profile_completed, c.first_name, c.last_name
         FROM users u 
         LEFT JOIN cadets c ON u.cadet_id = c.id 
-        WHERE (u.username = ? OR u.email = ?) AND u.role = 'cadet'
+        WHERE (u.username = ? OR u.email = ?)
     `;
     
     db.get(sql, [identifier, identifier], (err, user) => {
@@ -248,6 +250,13 @@ router.post('/cadet-login', (req, res) => {
         
         if (!user) {
             return res.status(400).json({ message: 'User not found. Please contact your administrator if you believe this is an error.' });
+        }
+
+        // SMART ERROR: Wrong Role
+        if (user.role !== 'cadet') {
+            return res.status(400).json({ 
+                message: `You are trying to login as a Cadet, but this account belongs to a ${user.role === 'training_staff' ? 'Staff' : 'Admin'}. Please switch to the correct login tab.` 
+            });
         }
 
         if (user.is_approved === 0) {
@@ -284,17 +293,19 @@ router.post('/cadet-login', (req, res) => {
 // Staff Login (Same as Cadet Login but checks training_staff role)
 // User requested "login route for training staff in the cadet login route"
 router.post('/staff-login-no-pass', (req, res) => {
-    const { identifier } = req.body; 
+    let { identifier } = req.body; 
 
     if (!identifier) {
         return res.status(400).json({ message: 'Please enter your Username or Email.' });
     }
+    
+    identifier = identifier.trim();
 
     const sql = `
         SELECT u.*, s.is_profile_completed, s.first_name, s.last_name
         FROM users u 
         LEFT JOIN training_staff s ON u.staff_id = s.id 
-        WHERE (u.username = ? OR u.email = ?) AND u.role = 'training_staff'
+        WHERE (u.username = ? OR u.email = ?)
     `;
     
     db.get(sql, [identifier, identifier], (err, user) => {
@@ -302,6 +313,13 @@ router.post('/staff-login-no-pass', (req, res) => {
         
         if (!user) {
             return res.status(400).json({ message: 'Staff user not found.' });
+        }
+
+        // SMART ERROR: Wrong Role
+        if (user.role !== 'training_staff') {
+            return res.status(400).json({ 
+                message: `You are trying to login as Staff, but this account belongs to a ${user.role === 'cadet' ? 'Cadet' : 'Admin'}. Please switch to the correct login tab.` 
+            });
         }
 
         const token = jwt.sign({ id: user.id, role: user.role, staffId: user.staff_id }, SECRET_KEY, { expiresIn: '24h' });
