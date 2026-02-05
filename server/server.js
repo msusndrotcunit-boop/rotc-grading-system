@@ -101,6 +101,38 @@ app.use('/api/integration', integrationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/images', imageRoutes);
 
+// DEBUG: Print all registered routes
+function printRoutes() {
+    console.log('\n[Router] Registered Routes:');
+    app._router.stack.forEach((middleware) => {
+        if (middleware.route) { // routes registered directly on the app
+            console.log(`[Router] ${Object.keys(middleware.route.methods).join(', ').toUpperCase()} ${middleware.route.path}`);
+        } else if (middleware.name === 'router') { // router middleware 
+            middleware.handle.stack.forEach((handler) => {
+                if (handler.route) {
+                    const method = Object.keys(handler.route.methods).join(', ').toUpperCase();
+                    // This is a bit hacky to get the prefix, but sufficient for debug
+                    let prefix = '';
+                    if (middleware.regexp.toString().includes('api/auth')) prefix = '/api/auth';
+                    else if (middleware.regexp.toString().includes('api/admin')) prefix = '/api/admin';
+                    else if (middleware.regexp.toString().includes('api/cadet')) prefix = '/api/cadet';
+                    else if (middleware.regexp.toString().includes('api/attendance')) prefix = '/api/attendance';
+                    else if (middleware.regexp.toString().includes('api/excuse')) prefix = '/api/excuse';
+                    else if (middleware.regexp.toString().includes('api/staff')) prefix = '/api/staff';
+                    else if (middleware.regexp.toString().includes('api/integration')) prefix = '/api/integration';
+                    else if (middleware.regexp.toString().includes('api/notifications')) prefix = '/api/notifications';
+                    else if (middleware.regexp.toString().includes('api/images')) prefix = '/api/images';
+                    
+                    console.log(`[Router] ${method} ${prefix}${handler.route.path}`);
+                }
+            });
+        }
+    });
+    console.log('[Router] End of Routes\n');
+}
+setTimeout(printRoutes, 1000); // Print after brief delay to ensure mounting
+
+
 // Create uploads directory if not exists
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)){
