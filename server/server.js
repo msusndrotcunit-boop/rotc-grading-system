@@ -59,6 +59,22 @@ app.get('/api/health', (req, res) => {
     }
 });
 
+// DEBUG: Env & Path Info (Safe subset)
+app.get('/api/debug-info', (req, res) => {
+    res.json({
+        node_env: process.env.NODE_ENV,
+        port: PORT,
+        cwd: process.cwd(),
+        dirname: __dirname,
+        client_build_path: clientBuildPath,
+        found_build: foundBuild,
+        routes_mounted: {
+            auth: true,
+            admin: true
+        }
+    });
+});
+
 // Web Push Configuration
 const publicVapidKey = process.env.VAPID_PUBLIC_KEY || 'BD2dXhUwhD5lQGW7ZJcuRji6ZyNeGo7T4VoX1DK2mCcsXs8ZpvYFM_t5KE2DyHAcVchDecw2kPpZZtNsL5BlgH8';
 const privateVapidKey = process.env.VAPID_PRIVATE_KEY || 'K2XLvvSJF0h98grs0_2Aqw-4UTg89Euy01Z83eQLuD4';

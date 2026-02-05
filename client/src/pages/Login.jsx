@@ -59,7 +59,11 @@ const Login = () => {
             }
         } catch (err) {
             console.error("Login error:", err);
-            setError(err.response?.data?.message || `Login failed. Please check your credentials. (Code: ${err.response?.status || 'Network/Server Error'})`);
+            const status = err.response?.status || 'Network Error';
+            const url = err.config?.url || 'unknown URL';
+            const serverMsg = err.response?.data?.message;
+            
+            setError(serverMsg || `Login failed. (${status}) at ${url}`);
         } finally {
             setLoading(false);
         }

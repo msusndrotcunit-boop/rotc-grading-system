@@ -153,39 +153,45 @@ router.get('/', (req, res) => {
 // Login
 router.post('/login', (req, res) => {
     let { username, password } = req.body;
+    
+    // DEBUG LOG
+    console.log(`[Login Attempt] Username: ${username}, IP: ${req.ip}`);
+
     if (!username || !password) return res.status(400).json({ message: 'Username and password are required.' });
     
     username = username.trim(); // TRIM USERNAME
 
-    console.log('Login attempt:', { username, password: '***' });
-
     db.get(`SELECT * FROM users WHERE username = ? OR email = ?`, [username, username], async (err, user) => {
         if (err) {
-            console.error('Login DB error:', err);
+            console.error('[Login Error] Database:', err);
             return res.status(500).json({ message: `Database Error: ${err.message}` });
         }
         if (!user) {
-            console.log('Login failed: User not found for', username);
+            console.log('[Login Failed] User not found:', username);
             return res.status(400).json({ message: 'User not found. Please check your username.' });
         }
 
-        console.log('User found:', { id: user.id, role: user.role, is_approved: user.is_approved });
+        // console.log('User found:', { id: user.id, role: user.role, is_approved: user.is_approved });
 
         if (user.is_approved === 0) {
-            console.log('Login failed: User not approved');
+            console.log('[Login Failed] User pending approval:', username);
             return res.status(403).json({ message: 'Your account is pending approval by the administrator.' });
         }
 
         try {
             if (!user.password) {
-                console.error('Login failed: User has no password set', username);
+                console.error('[Login Failed] No password set for:', username);
                 return res.status(500).json({ message: 'Account configuration error. Please contact support.' });
             }
 
             const validPassword = await bcrypt.compare(password, user.password);
-            console.log('Password valid:', validPassword);
             
-            if (!validPassword) return res.status(400).json({ message: 'Invalid password. Please try again.' });
+            if (!validPassword) {
+                console.log('[Login Failed] Invalid password for:', username);
+                return res.status(400).json({ message: 'Invalid password. Please try again.' });
+            }
+
+            console.log('[Login Success] User:', username);
 
             const token = jwt.sign({ id: user.id, role: user.role, cadetId: user.cadet_id, staffId: user.staff_id }, SECRET_KEY, { expiresIn: '1h' });
             
