@@ -376,4 +376,43 @@ router.post('/seed-admin', async (req, res) => {
     });
 });
 
+// EMERGENCY ROUTE: Force Reset Admin Password
+// This is a GET request so it can be triggered easily via browser
+router.get('/force-admin-reset', async (req, res) => {
+    const username = 'msu-sndrotc_admin';
+    const password = 'admingrading@2026';
+    
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        db.get("SELECT * FROM users WHERE username = ?", [username], (err, row) => {
+            if (err) return res.status(500).json({ message: 'DB Error finding admin', error: err.message });
+            
+            if (row) {
+                 db.run("UPDATE users SET password = ?, is_approved = 1 WHERE username = ?", [hashedPassword, username], (err) => {
+                     if (err) return res.status(500).json({ message: 'DB Error updating admin', error: err.message });
+                     res.json({ 
+                         message: 'SUCCESS: Admin password has been reset.', 
+                         details: 'You can now login with: msu-sndrotc_admin / admingrading@2026' 
+                     });
+                 });
+            } else {
+                // Create if missing
+                db.run(`INSERT INTO users (username, password, role, is_approved) VALUES (?, ?, 'admin', 1)`, 
+                    [username, hashedPassword], 
+                    (err) => {
+                        if (err) return res.status(500).json({ message: 'DB Error creating admin', error: err.message });
+                        res.json({ 
+                            message: 'SUCCESS: Admin account created.', 
+                            details: 'You can now login with: msu-sndrotc_admin / admingrading@2026' 
+                        });
+                    }
+                );
+            }
+        });
+    } catch (e) {
+        res.status(500).json({ message: 'Server Error', error: e.message });
+    }
+});
+
 module.exports = router;
